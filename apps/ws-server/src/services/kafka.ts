@@ -1,5 +1,7 @@
-import { Kafka, type Consumer, type Producer } from "kafkajs";
-import prismaClient from "./prisma.js";
+import { Kafka, type Producer } from "kafkajs";
+import env from "@baatcheet/env";
+
+import { prismaClient } from "@baatcheet/db";
 
 export const MESSAGES_TOPIC = "MESSAGES";
 export const DLQ_TOPIC = "MESSAGES_DLQ";
@@ -8,7 +10,7 @@ process.env.KAFKAJS_NO_PARTITIONER_WARNING = "1";
 
 const kafka = new Kafka({
   clientId: "bc-service",
-  brokers: [process.env.KAFKA_BROKER_URL!]
+  brokers: [env.KAFKA_BROKER_URL!]
 });
 
 const admin = kafka.admin();
