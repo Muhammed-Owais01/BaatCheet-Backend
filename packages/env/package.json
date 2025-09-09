@@ -1,0 +1,13 @@
+{
+  "name": "@baatcheet/env",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p ."
+  },
+  "dependencies": {
+    "dotenv": "^17.2.2"
+  }
+}
