@@ -1,25 +1,24 @@
 {
-    "name": "server",
-    "version": "1.0.0",
-    "type": "module",
-    "private": true,
-    "scripts": {
-        "start": "node dist/index",
-        "build": "tsc -p .",
-        "dev": "tsc-watch --onSuccess \"node dist/index.js\""
-    },
-    "devDependencies": {
-        "@types/node": "^24.3.1",
-        "prisma": "^6.15.0",
-        "ts-node": "^10.9.2",
-        "tsc-watch": "^7.1.1",
-        "typescript": "^5.9.2"
-    },
-    "dependencies": {
-        "@prisma/client": "^6.15.0",
-        "ioredis": "^5.7.0",
-        "kafkajs": "^2.2.4",
-        "socket.io": "^4.8.1",
-        "socket.io-client": "^4.8.1"
-    }
+  "name": "baatcheet-backend",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "turbo": "^2.5.6",
+    "typescript": "5.9.2"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "yarn@1.22.22",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
 }
