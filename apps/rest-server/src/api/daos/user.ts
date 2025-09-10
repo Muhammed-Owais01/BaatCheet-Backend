@@ -1,10 +1,20 @@
 import { prismaClient, type User } from "@baatcheet/db";
+import  { randomUUID } from "crypto";
+import bcrypt from "bcrypt";
+
+const SALT = 10;
 
 export class UserDAO {
-  static async create({ name, username, password }: Omit<User, "userId" | "createdAt" | "updatedAt">): Promise<User> {
+  static async create({
+    name,
+    username,
+    password,
+  }: Omit<User, "userId" | "createdAt" | "updatedAt">): Promise<User> {
+    const hashedPassword = await bcrypt.hash(password, SALT);
+
     const [result] = await prismaClient.$queryRaw<User[]>`
-      INSERT INTO "public"."users" (name, username, password, "createdAt", "updatedAt")
-      VALUES (${name}, ${username}, ${password}, NOW(), NOW())
+      INSERT INTO "public"."users" ("userId", name, username, password, "createdAt", "updatedAt")
+      VALUES (${randomUUID()}, ${name}, ${username}, ${hashedPassword}, NOW(), NOW())
       RETURNING *;
     `;
     return result;
@@ -14,6 +24,13 @@ export class UserDAO {
   static async findById(userId: string): Promise<User | null> {
     const [result] = await prismaClient.$queryRaw<User[]>`
       SELECT * FROM "public"."users" WHERE "userId" = ${userId} LIMIT 1;
+    `;
+    return result ?? null;
+  }
+
+  static async findByUsername(username: string): Promise<User | null> {
+    const [result] = await prismaClient.$queryRaw<User[]>`
+      SELECT * FROM "public"."users" WHERE "username" = ${username} LIMIT 1;
     `;
     return result ?? null;
   }

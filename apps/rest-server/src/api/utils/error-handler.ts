@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import dotenv from 'dotenv';
 import RequestError from "../errors/request-error.js";
-import logger from "../../logs/logger";
+import logger from "../../logs/logger.js";
 dotenv.config();
 
 const errorHandler = (error: Error | RequestError, req: Request, res: Response, next: NextFunction) => {
