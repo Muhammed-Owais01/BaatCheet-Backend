@@ -18,7 +18,7 @@ app.use(express.urlencoded({ extended: false }));
 
 app.use(cors());
 
-app.use('/user', userRouter);
+app.use('/users', userRouter);
 // app.use('/community', communityRouter);
 // app.use('/post', postRouter);
 // app.use('/comment', commentRouter);
