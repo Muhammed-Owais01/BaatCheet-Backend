@@ -1,6 +1,7 @@
 import { prismaClient, type User } from "@baatcheet/db";
-import  { randomUUID } from "crypto";
+import { randomUUID } from "crypto";
 import bcrypt from "bcrypt";
+import { Creation } from "../types/utils";
 
 const SALT = 10;
 
@@ -9,7 +10,7 @@ export class UserDAO {
     name,
     username,
     password,
-  }: Omit<User, "userId" | "createdAt" | "updatedAt">): Promise<User> {
+  }: Creation<User, "userId">): Promise<User> {
     const hashedPassword = await bcrypt.hash(password, SALT);
 
     const [result] = await prismaClient.$queryRaw<User[]>`
@@ -36,9 +37,11 @@ export class UserDAO {
   }
 
   // find all users
-  static async findAll(): Promise<User[]> {
-    return prismaClient.$queryRaw<User[]>`
-      SELECT * FROM "User" ORDER BY "createdAt" DESC;
+  static async findAll() {
+    return prismaClient.$queryRaw<Omit<User, "password">[]>`
+      SELECT u."userId", u.name, u.username, u."createdAt", u."updatedAt"
+      FROM "public"."users" u
+      ORDER BY "createdAt" DESC;
     `;
   }
 
@@ -59,7 +62,7 @@ export class UserDAO {
     if (sets.length === 0) return this.findById(userId);
 
     const query = `-- sql
-      UPDATE "User"
+      UPDATE "public"."users"
       SET ${sets.join(", ")}, "updatedAt" = NOW()
       WHERE "userId" = $1
       RETURNING *;
@@ -72,7 +75,7 @@ export class UserDAO {
   // delete user by id
   static async delete(userId: string): Promise<User | null> {
     const [result] = await prismaClient.$queryRaw<User[]>`
-      DELETE FROM "User" WHERE "userId" = ${userId}
+      DELETE FROM "public"."users" WHERE "userId" = ${userId}
       RETURNING *;
     `;
     return result ?? null;
