@@ -36,7 +36,7 @@ class UserFriendDAO {
         AND NOT EXISTS (
           SELECT 1
           FROM "public"."userfriends" uf2
-          WHERE uf1."userId" = uf2."friendId" AND uf2."userId" = uf1."friendId"
+          WHERE uf2."userId" = uf1."friendId"
         );
     `
   }

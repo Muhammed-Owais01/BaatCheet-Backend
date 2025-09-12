@@ -139,6 +139,15 @@ class UserController {
     });
   }
 
+  static async getRequests(req: Request, res: Response) {
+    const requests = await UserFriendService.getUserFriends(req.user!.userId as string, false);
+
+    res.status(200).json({
+      message: 'Friends requests successfully',
+      requests
+    });
+  }
+
   static async addFriend(req: Request, res: Response) {
     const friendId = req.params.userId as string;
     const userId = req.user!.userId as string;

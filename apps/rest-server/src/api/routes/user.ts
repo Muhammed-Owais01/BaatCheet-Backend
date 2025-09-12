@@ -17,6 +17,7 @@ router.post('/login', asyncHandler(UserController.login));
 // router.patch('/:userId', authHandler, asyncHandler(UserController.update));
 
 router.get('/friends', authHandler, asyncHandler(UserController.getFriends));
+router.get('/friends/requests', authHandler, asyncHandler(UserController.getRequests));
 router.post('/friends/:userId', authHandler, asyncHandler(UserController.addFriend));
 router.delete('/friends/:userId', authHandler, asyncHandler(UserController.removeFriend));
 

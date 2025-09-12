@@ -4,8 +4,11 @@ import { ExceptionType } from "../errors/exceptions.js";
 import RequestError from "../errors/request-error.js";
 
 class UserFriendService {
-  static async getUserFriends(userId: string) {
-    return await UserFriendDAO.getMutualFriendsByUserId(userId);
+  static async getUserFriends(userId: string, mutual: boolean = true) {
+    if (mutual)
+      return await UserFriendDAO.getMutualFriendsByUserId(userId);
+    // get one sided friends
+    return await UserFriendDAO.getNotMutualFriendsByUserId(userId);
   }
 
   static async addFriend(userId: string, friendId: string) {
