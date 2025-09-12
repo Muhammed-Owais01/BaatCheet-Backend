@@ -44,11 +44,6 @@ class UserService {
 //   }
 
   static async create(name: string, username: string, password: string) {
-    // let existingUser = await UserDAO.findByEmail(email);
-
-    // if (existingUser)
-    //   throw new RequestError(ExceptionType.CONFLICT);
-
     let existingUser = await UserService.findByUsername(username);
 
     if (existingUser)
@@ -73,7 +68,7 @@ class UserService {
   }
 
   static async update(id: string, user: Partial<Omit<User, "userId" | "createdAt" | "updatedAt">>) {
-    if (! await UserDAO.findById(id))
+    if (!await UserDAO.findById(id))
       throw new RequestError(ExceptionType.NOT_FOUND);
 
     return await UserDAO.update(id, user);
@@ -104,7 +99,7 @@ class UserService {
 
     const token = jwt.sign(
       {
-        id: user.userId,
+        userId: user.userId,
         username: user.username,
         // email: user.email,
         // role: user.role,
@@ -112,7 +107,7 @@ class UserService {
       },
       env.JWT_KEY as string,
       {
-        expiresIn: '1d'
+        expiresIn: env.MODE === 'dev' ? '1yr' : '1d'
       }
     );
 
