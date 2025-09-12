@@ -1,12 +1,12 @@
 import { NextFunction, Request, Response } from 'express';
 import asyncHandler from '../utils/async-handler.js';
 import jwt from 'jsonwebtoken';
-import UserDAO from '../daos/user.js';
 import RequestError from '../errors/request-error.js';
 import { ExceptionType } from '../errors/exceptions.js';
 import { type UserPayload } from '../types/express.d';
+import env from '@baatcheet/env';
 
-const authHandler = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+const authHandler = asyncHandler(async (req: Request, _res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader) throw new RequestError(ExceptionType.INVALID_TOKEN);
@@ -16,11 +16,10 @@ const authHandler = asyncHandler(async (req: Request, res: Response, next: NextF
   try {
     const decoded = jwt.verify(
       token,
-      process.env.JWT_KEY || 'secret-key'
+      env.JWT_KEY || 'secret-key'
     ) as UserPayload;
 
-    const user = await UserDAO.findById(decoded.id);
-    req.user = { ...decoded };
+    req.user = decoded;
     next();
   } catch (error: unknown) {
     throw new RequestError(ExceptionType.AUTH_FAILURE);
