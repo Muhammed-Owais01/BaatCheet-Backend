@@ -21,9 +21,39 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  messages Message[]
+  messages  Message[]
+  chats     Chat[]
+  friends   UserFriend[] @relation("UserFriendsUser")
+  friendsOf UserFriend[] @relation("UserFriendsFriend")
 
   @@map("users")
+}
+
+model Chat {
+  chatId      String  @id @default(uuid())
+  name        String?
+  description String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User?   @relation(fields: [ownerId], references: [userId])
+  ownerId String?
+
+  @@map("chats")
+}
+
+model UserFriend {
+  userfriendId String @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User?  @relation("UserFriendsUser", fields: [userId], references: [userId])
+  userId   String
+  friend   User?  @relation("UserFriendsFriend", fields: [friendId], references: [userId])
+  friendId String
+
+  @@map("userfriends")
+  @@unique([userId, friendId])
 }
 
 model Message {
