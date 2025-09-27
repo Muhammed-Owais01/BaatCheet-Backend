@@ -25,6 +25,8 @@ model User {
   chats     Chat[]
   friends   UserFriend[] @relation("UserFriendsUser")
   friendsOf UserFriend[] @relation("UserFriendsFriend")
+  requests  Request[] @relation("RequestRequester")
+  requestsOf Request[] @relation("RequestReceiver")
 
   @@map("users")
 }
@@ -54,6 +56,19 @@ model UserFriend {
 
   @@map("userfriends")
   @@unique([userId, friendId])
+}
+
+model Request {
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  requester   User?  @relation("RequestRequester", fields: [requesterId], references: [userId])
+  requesterId String
+  receiver    User?  @relation("RequestReceiver", fields: [receiverId], references: [userId])
+  receiverId  String
+
+  @@map("requests")
+  @@id([requesterId, receiverId])
 }
 
 model Message {

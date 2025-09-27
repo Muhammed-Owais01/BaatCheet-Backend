@@ -3,7 +3,7 @@ import { type User } from "@baatcheet/db"
 import UserService from "../services/user.js";
 import RequestError from "../errors/request-error.js";
 import { ExceptionType } from "../errors/exceptions.js";
-import UserFriendService from "../services/user-friend.js";
+import UserFriendService from "../services/friends.js";
 // import UserFriendService from "../services/user-friend";
 
 class UserController {
@@ -11,19 +11,12 @@ class UserController {
     const users = await UserService.getAll();
 
     res.status(200).json({
+      success: true,
       message: 'Users fetched successfully',
       count: users.length,
       users
     });
   }
-
-//   static async verify(req: Request, res: Response) {
-//     const { token } = req.params;
-
-//     await UserService.verify(token);
-
-//     res.status(200).json({ message: 'User verified successfully' });
-//   }
 
   static async getById(req: Request, res: Response) {
     const userId = req.params.userId as string;
@@ -34,6 +27,7 @@ class UserController {
       throw new RequestError(ExceptionType.NOT_FOUND);
 
     res.status(200).json({
+      success: true,
       message: 'User fetched successfully',
       user: {
         userId: user.userId,
@@ -54,6 +48,7 @@ class UserController {
       throw new RequestError(ExceptionType.NOT_FOUND);
 
     res.status(200).json({
+      success: true,
       message: 'User fetched successfully',
       user: {
         userId: user.userId,
@@ -84,12 +79,12 @@ class UserController {
     );
 
     res.status(201).json({
+      success: true,
       message: 'User created successfully',
       user: {
         userId: user.userId,
         name: user.name,
         username: user.username,
-        // role: user.role,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       }
@@ -99,19 +94,19 @@ class UserController {
   static async login(req: Request, res: Response) {
     const { username, password } = req.body;
 
-    if (!password || !(username))
-      throw new RequestError(ExceptionType.BAD_REQUEST, 'Username is required');
+    if (!password || !username)
+      throw new RequestError(ExceptionType.BAD_REQUEST, 'Username and password are required');
 
     const { user, token } = await UserService.login({ username, password });
 
     res.status(200).json({
+      success: true,
       message: 'Login successful',
       token,
       user: {
         userId: user.userId,
         name: user.name,
         username: user.username,
-        // role: user.role,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       }
@@ -134,31 +129,58 @@ class UserController {
     const friends = await UserFriendService.getUserFriends(req.user!.userId as string);
 
     res.status(200).json({
+      success: true,
       message: 'Friends fetched successfully',
       friends
     });
   }
 
-  static async getRequests(req: Request, res: Response) {
-    const requests = await UserFriendService.getUserFriends(req.user!.userId as string, false);
-
+  static async sendFriendRequest(req: Request, res: Response) {
+    const receiverId = req.params.userId as string;
+    const requesterId = req.user!.userId as string;
+    if (receiverId === requesterId) {
+      throw new RequestError(ExceptionType.BAD_REQUEST, 'You cannot send a friend request to yourself');
+    }
+    await UserFriendService.sendFriendRequest(requesterId, receiverId);
     res.status(200).json({
-      message: 'Friends requests successfully',
+      success: true,
+      message: 'Friend request sent successfully',
+    });
+  }
+
+  static async getRequests(req: Request, res: Response) {
+    const requests = await UserFriendService.getFriendRequests(req.user!.userId as string);
+    res.status(200).json({
+      success: true,
+      message: 'Friend requests fetched successfully',
       requests
     });
   }
 
-  static async addFriend(req: Request, res: Response) {
-    const friendId = req.params.userId as string;
-    const userId = req.user!.userId as string;
+  static async acceptFriendRequest(req: Request, res: Response) {
+    const requesterId = req.params.userId as string;
+    const receiverId = req.user!.userId as string;
+    if (receiverId === requesterId) {
+      throw new RequestError(ExceptionType.BAD_REQUEST, 'You cannot accept a friend request from yourself');
+    }
+    await UserFriendService.acceptFriendRequest(requesterId, receiverId);
+    res.status(200).json({
+      success: true,
+      message: 'Friend request accepted successfully',
+    });
+  }
 
-    if (userId === friendId)
-      throw new RequestError(ExceptionType.BAD_REQUEST, "Cannot add yourself as friends");
+  static async rejectFriendRequest(req: Request, res: Response) {
+    const requesterId = req.params.userId as string;
+    const receiverId = req.user!.userId as string;
+    if (receiverId === requesterId) {
+      throw new RequestError(ExceptionType.BAD_REQUEST, 'You cannot reject a friend request from yourself');
+    }
 
-    await UserFriendService.addFriend(userId, friendId);
-
-    res.status(201).json({
-      message: "User added as friend"
+    await UserFriendService.rejectFriendRequest(requesterId, receiverId);
+    res.status(200).json({
+      success: true,
+      message: 'Friend request rejected successfully',
     });
   }
 
@@ -166,16 +188,14 @@ class UserController {
     const friendId = req.params.userId as string;
     const userId = req.user!.userId as string;
 
-    if (userId === friendId)
-      throw new RequestError(ExceptionType.BAD_REQUEST, "Cannot remove yourself from friends");
+    if (friendId === userId)
+      throw new RequestError(ExceptionType.BAD_REQUEST, 'You cannot remove yourself as a friend');
 
-    const result = await UserFriendService.removeFriend(userId, friendId);
-
-    if (!result)
-      throw new RequestError(ExceptionType.NOT_FOUND, "User is not a friend");
+    await UserFriendService.removeFriend(userId, friendId);
 
     res.status(200).json({
-      message: "User removed from friends"
+      success: true,
+      message: 'Friend removed successfully'
     });
   }
 }

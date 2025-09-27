@@ -3,10 +3,8 @@ import { type User } from "@baatcheet/db";
 import { ExceptionType } from "../errors/exceptions.js";
 import RequestError from "../errors/request-error.js";
 import bcrypt from 'bcrypt';
-// import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import env from "@baatcheet/env";
-// import { sendVerificationEmail } from "../utils/email";
 
 class UserService {
   static async getAll() {
@@ -21,28 +19,6 @@ class UserService {
     return await UserDAO.findByUsername(username);
   }
 
-//   static async verify(token: string) {
-//     const user = await UserDAO.findByVerificationToken(token);
-
-//     if (!user)
-//       throw new RequestError(ExceptionType.NOT_FOUND);
-
-//     if (user.isVerified)
-//       throw new RequestError(ExceptionType.BAD_REQUEST, 'User already verified');
-
-//     await UserDAO.update(user.id, {
-//       username: user.username,
-//       displayName: user.displayName,  
-//       email: user.email,
-//       password: user.password,
-//       role: user.role,
-//       isVerified: true,
-//       verificationToken: null
-//     });
-
-//     return user;
-//   }
-
   static async create(name: string, username: string, password: string) {
     let existingUser = await UserService.findByUsername(username);
 
@@ -50,19 +26,9 @@ class UserService {
       throw new RequestError(ExceptionType.CONFLICT);
 
     let user: User = await UserDAO.create({ name, username, password });
-    // if (role === 'member') {
-    //   const verificationToken = crypto.randomBytes(32).toString('hex');
-    //   // password gets hashed in the before create hook
-    //   user = await UserDAO.create({ username, displayName, email, password, role, isVerified: false, verificationToken });
-    // } else {
-    //   user = await UserDAO.create({ username, displayName, email, password, role, isVerified: true });
-    // }
 
     if (!user)
       throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to create user');
-
-    // if (role === 'member')
-    //   await sendVerificationEmail(email, user.verificationToken as string);
 
     return user;
   }
@@ -81,9 +47,7 @@ class UserService {
     return await UserDAO.delete(id);
   }
 
-  // password is always available
   static async login(credentials: { username: string, password: string }) {
-    // const user = credentials.username ? await UserService.findByUsername(credentials.username as string) : await UserService.findByEmail(credentials.email as string);
     const user = await UserDAO.findByUsername(credentials.username);
 
     if (!user)
@@ -93,17 +57,11 @@ class UserService {
 
     if (!isPasswordValid)
       throw new RequestError(ExceptionType.AUTH_FAILURE, 'Invalid email or password');
-    
-    // if (!user.isVerified)
-    //   throw new RequestError(ExceptionType.FORBIDDEN, 'User is not verified');
 
     const token = jwt.sign(
       {
         userId: user.userId,
         username: user.username,
-        // email: user.email,
-        // role: user.role,
-        // isVerified: user.isVerified
       },
       env.JWT_KEY as string,
       {
