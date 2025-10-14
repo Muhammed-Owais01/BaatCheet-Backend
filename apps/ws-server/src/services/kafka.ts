@@ -83,7 +83,7 @@ export async function produceMessage(
 
     console.error(`Failed to produce message to ${topic}:`, error);
     setTimeout(async () => {
-      await produceMessage(DLQ_TOPIC, key, value, 2*retryTimeout);
+      await produceMessage(DLQ_TOPIC, key, value, 2 * retryTimeout);
     }, retryTimeout);
   }
 }
@@ -107,14 +107,22 @@ export async function startMessageConsumer() {
         }
 
         try {
-          const content = message.value.toString();
+          const data = JSON.parse(message.value.toString());
+          const newMessage = {
+            messageId: crypto.randomUUID(),
+            content: data.message,
+            chatId: message.key?.toString() ?? "",
+            senderId: data.senderId,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
 
           await prismaClient.message.create({
-            data: { content },
+            data: newMessage,
           });
-          
+
           console.log(
-            `Stored message (offset: ${message.offset}, partition: ${batch.partition}): ${content}`
+            `Stored message (offset: ${message.offset}, partition: ${batch.partition}): ${newMessage.chatId}`
           );
 
           resolveOffset(message.offset);
