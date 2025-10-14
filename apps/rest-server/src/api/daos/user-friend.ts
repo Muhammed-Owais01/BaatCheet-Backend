@@ -1,24 +1,20 @@
-import { User, type UserFriend, PrismaClient, prismaClient } from "@baatcheet/db";
-import { Creation } from "../types/utils";
-import { randomUUID } from "crypto";
-
-type TransactionClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
+import { User, type UserFriend, prismaClient } from "@baatcheet/db";
+import { Creation, TransactionClient } from "../types/utils";
 
 class UserFriendDAO {
-  // Helper method to normalize user IDs (smaller userId first)
   private static normalizeUserIds(userId: string, friendId: string) {
     return userId < friendId 
       ? { userId, friendId } 
       : { userId: friendId, friendId: userId };
   }
-
-  static async create({ userId, friendId }: Creation<UserFriend, "userfriendId">, tx?: TransactionClient) {
+  
+  static async create({ userId, friendId }: Creation<UserFriend, never>, tx?: TransactionClient) {
     const client = tx || prismaClient;
     const normalized = this.normalizeUserIds(userId, friendId);
     
     const [result] = await client.$queryRaw<UserFriend[]>`
-      INSERT INTO "public"."userfriends" ("userfriendId", "userId", "friendId", "createdAt", "updatedAt")
-      VALUES (${randomUUID()}, ${normalized.userId}, ${normalized.friendId}, NOW(), NOW())
+      INSERT INTO "public"."userfriends" ("userId", "friendId", "createdAt", "updatedAt")
+      VALUES (${normalized.userId}, ${normalized.friendId}, NOW(), NOW())
       RETURNING *;
     `;
     return result;
