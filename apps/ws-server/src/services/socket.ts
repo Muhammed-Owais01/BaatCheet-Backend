@@ -33,17 +33,17 @@ class SocketService {
     io.on("connect", (socket) => {
       console.log(`New Socket Connect`, socket.id);
 
-      socket.on("event:message", async ({ message }: { message: string }) => {
+      socket.on("event:message", async ({ chatId, senderId, message }: { chatId: string; senderId: string; message: string }) => {
         console.log(`${socket.id}:> ${message}`);
-        await pub.publish(MESSAGES_CHANNEL, JSON.stringify({ message }));
+        await pub.publish(MESSAGES_CHANNEL, JSON.stringify({ chatId, senderId, message }));
       });
     });
 
     sub.on("message", async (channel, data) => {
       if (channel === MESSAGES_CHANNEL) {
         io.emit("message", data);
-        const { message } = JSON.parse(data);
-        await produceMessage(MESSAGES_TOPIC, null, message);
+        const { chatId, senderId, message } = JSON.parse(data);
+        await produceMessage(MESSAGES_TOPIC, chatId, JSON.stringify({ senderId, message }));
       }
     });
   }
