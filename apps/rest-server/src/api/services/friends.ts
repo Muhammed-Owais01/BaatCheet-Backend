@@ -74,7 +74,7 @@ class UserFriendService {
       } catch (error: unknown) {
         if (
           error instanceof Prisma.PrismaClientKnownRequestError
-          && error.meta?.code === "23505" // psql unique constraint error
+          && error.code === "P2002" // Prisma unique constraint error
         ) {
           if (error.meta?.constraint === "userfriends_userid_friendid_key") {
             throw new RequestError(ExceptionType.CONFLICT, 'You are already friends with this user');
