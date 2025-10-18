@@ -40,10 +40,7 @@ class SocketService {
     io.on("connect", (socket) => {
       console.log(`New Socket Connect`, socket.id);
 
-      // socket.on("event:message", async ({ chatId, senderId, message }: { chatId: string; senderId: string; message: string }) => {
-      //   console.log(`${socket.id}:> ${message}`);
-      //   await this.publishMessage(chatId, senderId, message);
-      // });
+      // TODO: Re-enable "event:message" handler when chat message events are supported.
     });
 
     sub.on("message", async (channel, data) => {
