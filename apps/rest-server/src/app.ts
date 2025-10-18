@@ -3,9 +3,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 
 import userRouter from './api/routes/user.js';
-// import communityRouter from './api/routes/community';
-// import postRouter from './api/routes/post';
-// import commentRouter from './api/routes/comment';
+import chatRouter from './api/routes/chat.js';
 
 import errorHandler from './api/utils/error-handler.js';
 
@@ -19,9 +17,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cors());
 
 app.use('/users', userRouter);
-// app.use('/community', communityRouter);
-// app.use('/post', postRouter);
-// app.use('/comment', commentRouter);
+app.use('/chats', chatRouter);
 
 app.use(errorHandler);
 

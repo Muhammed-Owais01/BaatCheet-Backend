@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import dotenv from 'dotenv';
 import RequestError from "../errors/request-error.js";
 import logger from "../../logs/logger.js";
+import env from "@baatcheet/env";
 dotenv.config();
 
 const errorHandler = (error: Error | RequestError, req: Request, res: Response, next: NextFunction) => {
@@ -29,7 +30,7 @@ const errorHandler = (error: Error | RequestError, req: Request, res: Response, 
       name: error_name,
       message: error_message,
       info: error_info,
-      stack: process.env.MODE === 'dev' && error.stack
+      stack: env.MODE === 'dev' ? error.stack : undefined
     }
   });
 };

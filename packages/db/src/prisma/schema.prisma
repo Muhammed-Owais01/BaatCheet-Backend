@@ -21,9 +21,74 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  messages Message[]
+  messages  Message[] @relation("UserMessages")
+  friends   UserFriend[] @relation("UserFriendsUser")
+  friendsOf UserFriend[] @relation("UserFriendsFriend")
+  requests  Request[] @relation("RequestRequester")
+  requestsOf Request[] @relation("RequestReceiver")
+  memberships ChatMembership[] @relation("UserMemberships")
 
   @@map("users")
+}
+
+enum ChatType {
+  DIRECT @map("DIRECT")
+  GROUP  @map("GROUP")
+}
+
+model Chat {
+  chatId       String   @id @default(uuid())
+  type         ChatType @default(DIRECT)
+  name         String?
+  lastMessageAt DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  messages     Message[] @relation("ChatMessages")
+  members      ChatMembership[] @relation("ChatMembers")
+
+  @@map("chats")
+  @@index([lastMessageAt])
+}
+
+model ChatMembership {
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  chat     Chat   @relation("ChatMembers", fields: [chatId], references: [chatId], onDelete: Cascade)
+  chatId   String
+  user     User   @relation("UserMemberships", fields: [userId], references: [userId], onDelete: Cascade)
+  userId   String
+
+  @@id([chatId, userId])
+  @@index([userId])
+  @@map("chatmemberships")
+}
+
+model UserFriend {
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User?  @relation("UserFriendsUser", fields: [userId], references: [userId], onDelete: Cascade)
+  userId   String
+  friend   User?  @relation("UserFriendsFriend", fields: [friendId], references: [userId], onDelete: Cascade)
+  friendId String
+
+  @@map("userfriends")
+  @@id([userId, friendId])
+}
+
+model Request {
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  requester   User?  @relation("RequestRequester", fields: [requesterId], references: [userId], onDelete: Cascade)
+  requesterId String
+  receiver    User?  @relation("RequestReceiver", fields: [receiverId], references: [userId], onDelete: Cascade)
+  receiverId  String
+
+  @@map("requests")
+  @@id([requesterId, receiverId])
 }
 
 model Message {
@@ -32,8 +97,12 @@ model Message {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user     User?   @relation(fields: [senderId], references: [userId], onDelete: Cascade)
+  user     User?   @relation("UserMessages", fields: [senderId], references: [userId], onDelete: SetNull)
   senderId String?
+  chat     Chat    @relation("ChatMessages", fields: [chatId], references: [chatId], onDelete: Cascade)
+  chatId   String
 
   @@map("messages")
+  @@index([chatId, createdAt])
+  @@index([chatId, senderId])
 }
