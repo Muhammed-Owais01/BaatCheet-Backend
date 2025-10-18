@@ -1,6 +1,7 @@
 import { Server } from "socket.io"
 import { Redis } from "ioredis";
 import { MESSAGES_TOPIC, produceMessage } from "./kafka.js";
+import { validateChatMembership } from "@baatcheet/common";
 
 const redisOptions = {
   host: "127.0.0.1",
@@ -26,6 +27,12 @@ class SocketService {
     sub.subscribe(MESSAGES_CHANNEL);
   }
 
+  public async publishMessage(chatId: string, senderId: string, message: string) {
+    // Validate membership before publishing
+    await validateChatMembership(senderId, chatId);
+    await pub.publish(MESSAGES_CHANNEL, JSON.stringify({ chatId, senderId, message }));
+  }
+
   public initListeners() {
     const io = this.io;
     console.log("Init Socket Listeners...");
@@ -33,10 +40,10 @@ class SocketService {
     io.on("connect", (socket) => {
       console.log(`New Socket Connect`, socket.id);
 
-      socket.on("event:message", async ({ chatId, senderId, message }: { chatId: string; senderId: string; message: string }) => {
-        console.log(`${socket.id}:> ${message}`);
-        await pub.publish(MESSAGES_CHANNEL, JSON.stringify({ chatId, senderId, message }));
-      });
+      // socket.on("event:message", async ({ chatId, senderId, message }: { chatId: string; senderId: string; message: string }) => {
+      //   console.log(`${socket.id}:> ${message}`);
+      //   await this.publishMessage(chatId, senderId, message);
+      // });
     });
 
     sub.on("message", async (channel, data) => {
