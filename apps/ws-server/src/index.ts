@@ -24,9 +24,9 @@ async function init() {
       await socketService.publishMessage(chatId, senderId, message);
       
       res.status(200).json({ success: true, message: 'Message sent successfully' });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error sending message:', error);
-      if (error.message === "User is not a member of this chat") {
+      if (error instanceof Error && error.message === "User is not a member of this chat") {
         return res.status(403).json({ success: false, message: error.message });
       }
       res.status(500).json({ success: false, message: 'Failed to send message' });
