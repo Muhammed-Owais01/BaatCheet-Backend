@@ -27,6 +27,8 @@ model User {
   requests  Request[] @relation("RequestRequester")
   requestsOf Request[] @relation("RequestReceiver")
   memberships ChatMembership[] @relation("UserMemberships")
+  guilds    GuildMembership[] @relation("UserGuilds")
+  ownedGuilds Guild[] @relation("GuildOwner")
 
   @@map("users")
 }
@@ -46,9 +48,12 @@ model Chat {
 
   messages     Message[] @relation("ChatMessages")
   members      ChatMembership[] @relation("ChatMembers")
+  guild        Guild?    @relation("GuildChats", fields: [guildId], references: [guildId], onDelete: SetNull)
+  guildId      String?
 
   @@map("chats")
   @@index([lastMessageAt])
+  @@index([guildId])
 }
 
 model ChatMembership {
@@ -63,6 +68,53 @@ model ChatMembership {
   @@id([chatId, userId])
   @@index([userId])
   @@map("chatmemberships")
+}
+
+model Guild {
+  guildId   String   @id @default(uuid())
+  guildName String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner     User     @relation("GuildOwner", fields: [ownerId], references: [userId], onDelete: Cascade)
+  ownerId   String
+  chats     Chat[] @relation("GuildChats")
+  roles     GuildRole[] @relation("GuildRoles")
+  members   GuildMembership[] @relation("GuildMembers")
+
+  @@map("guilds")
+}
+
+model GuildRole {
+  roleId    String   @id @default(uuid())
+  roleName  String
+  color     String?
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guild     Guild   @relation("GuildRoles", fields: [guildId], references: [guildId], onDelete: Cascade)
+  guildId   String
+  members   GuildMembership[] @relation("GuildRoleMembers")
+
+  @@map("guildroles")
+  @@index([guildId])
+}
+
+model GuildMembership {
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guild   Guild     @relation("GuildMembers", fields: [guildId], references: [guildId], onDelete: Cascade)
+  guildId String
+  user    User      @relation("UserGuilds", fields: [userId], references: [userId], onDelete: Cascade)
+  userId  String
+  role    GuildRole @relation("GuildRoleMembers", fields: [roleId], references: [roleId], onDelete: Restrict)
+  roleId  String
+
+  @@id([guildId, userId, roleId])
+  @@index([userId])
+  @@map("guildmemberships")
 }
 
 model UserFriend {
