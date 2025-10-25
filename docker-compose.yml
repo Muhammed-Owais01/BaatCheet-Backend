@@ -62,6 +62,49 @@ services:
       kafka:
         condition: service_healthy
 
+  # -----------------------------------------------------
+  # 🧠 OpenFGA (authorization system)
+  # -----------------------------------------------------
+  create-openfga-schema:
+    image: postgres:15-alpine
+    container_name: create-openfga-schema
+    depends_on:
+      postgres:
+        condition: service_started
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "until pg_isready -h postgres -U postgres; do sleep 1; done;
+      psql postgres://postgres:postgres@postgres:5432/bcdb -c 'CREATE SCHEMA IF NOT EXISTS openfga;'"
+
+  migrate:
+    depends_on:
+      create-openfga-schema:
+        condition: service_completed_successfully
+    image: openfga/openfga:latest
+    container_name: openfga-migrate
+    command: migrate
+    environment:
+      - OPENFGA_DATASTORE_ENGINE=postgres
+      - OPENFGA_DATASTORE_URI=postgres://postgres:postgres@postgres:5432/bcdb?sslmode=disable&search_path=openfga
+
+
+
+  openfga:
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    image: openfga/openfga:latest
+    container_name: openfga
+    command: run
+    environment:
+      - OPENFGA_DATASTORE_ENGINE=postgres
+      - OPENFGA_DATASTORE_URI=postgres://postgres:postgres@postgres:5432/bcdb?sslmode=disable&search_path=openfga
+      - OPENFGA_LOG_FORMAT=json
+    ports:
+      - "8080:8080"   # HTTP API
+      - "808:8082"   # gRPC (optional)
+      - "3000:3000"   # Playground (disable in prod)
+
 volumes:
   pg_data:
   redis_data:
