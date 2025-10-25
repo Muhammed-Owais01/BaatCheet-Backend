@@ -33,14 +33,6 @@ export class GuildMembershipDAO {
         return memberships.length > 0 ? memberships : null;
     }
 
-    static async updateRole(membershipId: string, roleId: string, tx?: TransactionClient): Promise<GuildMembership | null> {
-        const client = tx ?? prismaClient;
-        const [updatedMembership] = await client.$queryRaw<GuildMembership[]>`
-            UPDATE "guildmemberships" SET "roleId" = ${roleId} WHERE "id" = ${membershipId} RETURNING *;
-        `;
-        return updatedMembership || null;
-    }
-
     static async delete(guildId: string, userId: string, tx?: TransactionClient): Promise<void> {
         const client = tx ?? prismaClient;
         await client.$queryRaw`
