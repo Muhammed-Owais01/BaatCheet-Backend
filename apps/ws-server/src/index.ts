@@ -33,7 +33,7 @@ async function init() {
         relation: 'can_send_messages',
         object: `guild:${guildId}`,
       });
-      if (!canSendMessage) {
+      if (!canSendMessage.allowed) {
         return res.status(403).json({ success: false, message: 'User does not have permission to send messages in this guild' });
       }
       
