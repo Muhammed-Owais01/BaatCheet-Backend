@@ -7,6 +7,7 @@ const server = http.createServer(app);
 
 async function start() {
   try {
+    
     server.listen(port);
     console.log(`http://localhost:${port}`);
   } catch(error: unknown) {

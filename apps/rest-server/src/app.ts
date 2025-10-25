@@ -4,6 +4,7 @@ import morgan from 'morgan';
 
 import userRouter from './api/routes/user.js';
 import chatRouter from './api/routes/chat.js';
+import guildRouter from './api/routes/guild.js';
 
 import errorHandler from './api/utils/error-handler.js';
 
@@ -18,6 +19,7 @@ app.use(cors());
 
 app.use('/users', userRouter);
 app.use('/chats', chatRouter);
+app.use('/guilds', guildRouter);
 
 app.use(errorHandler);
 
