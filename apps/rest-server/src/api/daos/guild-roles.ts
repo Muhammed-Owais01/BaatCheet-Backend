@@ -1,10 +1,13 @@
 import { prismaClient, type GuildRole } from "@baatcheet/db";
-import { Prisma } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { randomUUID } from "crypto";
 
+type TransactionClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
+
 export class GuildRolesDAO {
-    static async create(guildId: string, roleName: string, color?: string): Promise<GuildRole> {
-        const [role] = await prismaClient.$queryRaw<GuildRole[]>`
+    static async create(guildId: string, roleName: string, color?: string, tx?: TransactionClient): Promise<GuildRole> {
+        const client = tx ?? prismaClient;
+        const [role] = await client.$queryRaw<GuildRole[]>`
             INSERT INTO "guildroles" ("roleId", "guildId", "roleName", "color", "createdAt", "updatedAt")
             VALUES (${randomUUID()}, ${guildId}, ${roleName}, ${color}, NOW(), NOW())
             RETURNING *;
@@ -40,14 +43,16 @@ export class GuildRolesDAO {
         return roles.map(role => role.roleId);
     }
 
-    static async deleteByRoleId(roleId: string): Promise<void> {
-        await prismaClient.$queryRaw`
+    static async deleteByRoleId(roleId: string, tx?: TransactionClient): Promise<void> {
+        const client = tx ?? prismaClient;
+        await client.$queryRaw`
             DELETE FROM "guildroles" WHERE "roleId" = ${roleId};
         `;
     }
 
-    static async deleteByGuild(guildId: string): Promise<void> {
-        await prismaClient.$queryRaw`
+    static async deleteByGuild(guildId: string, tx?: TransactionClient): Promise<void> {
+        const client = tx ?? prismaClient;
+        await client.$queryRaw`
             DELETE FROM "guildroles" WHERE "guildId" = ${guildId};
         `;
     }

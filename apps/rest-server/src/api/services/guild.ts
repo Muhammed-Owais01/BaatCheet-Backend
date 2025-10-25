@@ -1,5 +1,5 @@
 import GuildDAO from "../daos/guild.js";
-import { type Guild } from "@baatcheet/db";
+import { prismaClient, type Guild } from "@baatcheet/db";
 import GuildMembershipDAO from "../daos/guild-membership.js";
 import GuildRolesDAO from "../daos/guild-roles.js";
 import RequestError from "../errors/request-error.js";
@@ -10,37 +10,33 @@ export class GuildService {
     static async createGuild(guildName: string, ownerId: string) {
         const guild: Guild | null = await GuildDAO.findByNameAndOwnerId(guildName, ownerId);
         if (guild) {
-            throw new Error("Guild with the same name already exists for this owner.");
+            throw new RequestError(ExceptionType.CONFLICT, 'You already own a guild with this name');
         }
 
-        let newGuild: Guild = await GuildDAO.create(guildName, ownerId);
-        if (!newGuild) {
-            throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to create guild');
-        }
-        
-        const role = await GuildRolesDAO.create(newGuild.guildId, 'Member');
-        if (!role) {
-            throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to create default guild role');
-        }
+        return await prismaClient.$transaction(async (tx) => {
+            try {
+                const newGuild = await GuildDAO.create(guildName, ownerId, tx);
+                const role = await GuildRolesDAO.create(newGuild.guildId, 'Member', 'white', tx);
+                let membership = await GuildMembershipDAO.create(newGuild.guildId, ownerId, role.roleId, tx);
 
-        let membership = await GuildMembershipDAO.create(newGuild.guildId, ownerId, role.roleId);
-        if (!membership) {
-            throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to create guild membership');
-        }
+                await fgaClient.write({
+                    writes: [{
+                        user: `user:${ownerId}`,
+                        relation: "owner",
+                        object: `guild:${newGuild.guildId}`,
+                    },{
+                        user: `user:${ownerId}`,
+                        relation: "member",
+                        object: `guild:${newGuild.guildId}`,
+                    }]
+                });
 
-        await fgaClient.write({
-            writes: [{
-                user: `user:${ownerId}`,
-                relation: "owner",
-                object: `guild:${newGuild.guildId}`,
-            },{
-                user: `user:${ownerId}`,
-                relation: "member",
-                object: `guild:${newGuild.guildId}`,
-            }]
+                return newGuild
+            } catch (error) {
+                console.error('Error creating guild:', error);
+                throw error;
+            }
         });
-
-        return newGuild;
     }
 
     static async getGuildById(guildId: string) {
@@ -61,28 +57,32 @@ export class GuildService {
             throw new RequestError(ExceptionType.FORBIDDEN, 'You do not have permission to create roles in this guild');
         }
 
-        const role = await GuildRolesDAO.create(guildId, roleName, color);
-        if (!role) {
-            throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to create role');
-        }
+        return await prismaClient.$transaction(async (tx) => {
+            try {
+                const role = await GuildRolesDAO.create(guildId, roleName, color, tx);
+                
+                await fgaClient.write({
+                    writes: [{
+                        user: `guild:${guildId}`,
+                        relation: "parent",
+                        object: `role:${role.roleId}`
+                    }]
+                });
+        
+                await fgaClient.write({
+                    writes: permissions.map(permission => ({
+                        user: `role:${role.roleId}#has_role`,
+                        relation: permission,
+                        object: `guild:${guildId}`
+                    }))
+                })
 
-        await fgaClient.write({
-            writes: [{
-                user: `guild:${guildId}`,
-                relation: "parent",
-                object: `role:${role.roleId}`
-            }]
-        });
-
-        await fgaClient.write({
-            writes: permissions.map(permission => ({
-                user: `role:${role.roleId}#has_role`,
-                relation: permission,
-                object: `guild:${guildId}`
-            }))
+                return role;
+            } catch (error) {
+                console.error('Error creating role:', error);
+                throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to create role');
+            }
         })
-
-        return role
     }
 
     static async assignRoleToMember(guildId: string, roleName: string, userId: string, memberId: string) {
@@ -105,20 +105,25 @@ export class GuildService {
             throw new RequestError(ExceptionType.NOT_FOUND, 'Role not found in the guild');
         }
 
-        const newMembership = await GuildMembershipDAO.create(guildId, memberId, roleId);
-        if (!newMembership) {
-            throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to assign role to member');
-        }
+        return await prismaClient.$transaction(async (tx) => {
+            try {
+                const membership = await GuildMembershipDAO.create(guildId, memberId, roleId, tx);
 
-        await fgaClient.write({
-            writes: [{
-                user: `user:${memberId}`,
-                relation: "has_role",
-                object: `role:${roleId}`
-            }]
+                await fgaClient.write({
+                    writes: [{
+                        user: `user:${memberId}`,
+                        relation: "has_role",
+                        object: `role:${roleId}`
+                    }]
+                });
+
+                return membership;
+            } catch (error) {
+                console.error('Error assigning role to member:', error);
+                throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to assign role to member');
+            }
         });
 
-        return newMembership;
     }
 
     static async updateGuild(guildId: string, data: Partial<Omit<Guild, "guildId" | "createdAt" | "updatedAt">>) {
@@ -150,18 +155,24 @@ export class GuildService {
             throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Default role not found for guild');
         }
 
-        const membership = await GuildMembershipDAO.create(guildId, memberId, roleId);
-        if (!membership) {
-            throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to add member to guild');
-        }
+        await prismaClient.$transaction(async (tx) => {
+            try {
+                await GuildMembershipDAO.create(guildId, memberId, roleId, tx);
 
-        await fgaClient.write({
-            writes: [{
-                user: `user:${memberId}`,
-                relation: "member",
-                object: `guild:${guildId}`
-            }]
-        });
+                await fgaClient.write({
+                    writes: [{
+                        user: `user:${memberId}`,
+                        relation: "member",
+                        object: `guild:${guildId}`
+                    }]
+                });
+
+            } catch (error) {
+                console.error('Error adding member to guild:', error);
+                throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to add member to guild');
+            }
+        })
+
     }
 
     static async removeMemberFromGuild(guildId: string, userId: string, memberId: string) {
@@ -188,17 +199,24 @@ export class GuildService {
             throw new RequestError(ExceptionType.NOT_FOUND, 'Guild membership not found for the member');
         }
 
-        await GuildMembershipDAO.delete(guildId, memberId);
+        await prismaClient.$transaction(async (tx) => {
+            try {
+                await GuildMembershipDAO.delete(guildId, memberId);
 
-        if (roleIds?.length) {
-            await fgaClient.write({
-                deletes: roleIds.map(roleId => ({
-                    user: `user:${memberId}`,
-                    relation: "has_role",
-                    object: `role:${roleId}`
-                }))
-            });
-        }
+                if (roleIds?.length) {
+                    await fgaClient.write({
+                        deletes: roleIds.map(roleId => ({
+                            user: `user:${memberId}`,
+                            relation: "has_role",
+                            object: `role:${roleId}`
+                        }))
+                    });
+                }
+            } catch (error) {
+                console.error('Error removing member from guild:', error);
+                throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to remove member from guild');
+            }
+        })
     }
 
     static async deleteRole(guildId: string, roleName: string, userId: string) {
@@ -216,21 +234,31 @@ export class GuildService {
             throw new RequestError(ExceptionType.NOT_FOUND, 'Role not found in the guild');
         }
 
-        await GuildRolesDAO.deleteByRoleId(roleId);
+        await prismaClient.$transaction(async (tx) => {
+            try {
+                await GuildRolesDAO.deleteByRoleId(roleId, tx);
 
-        const { tuples: roleTuples } = await fgaClient.read({
-            object: `role:${roleId}`
+                const { tuples: roleTuples } = await fgaClient.read({
+                    object: `role:${roleId}`
+                });
+        
+                if (roleTuples?.length) {
+                    await fgaClient.write({
+                        deletes: roleTuples.map(tuple => ({
+                            object: tuple.key.object,
+                            relation: tuple.key.relation,
+                            user: tuple.key.user
+                        }))
+                    });
+                }
+
+            } catch (error) {
+                console.error('Error deleting role:', error);
+                throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to delete role');
+            }
         });
 
-        if (roleTuples?.length) {
-            await fgaClient.write({
-                deletes: roleTuples.map(tuple => ({
-                    object: tuple.key.object,
-                    relation: tuple.key.relation,
-                    user: tuple.key.user
-                }))
-            });
-        }
+
     }
 
     static async deleteGuild(guildId: string, userId: string) {
@@ -250,37 +278,45 @@ export class GuildService {
 
         const roleIds = await GuildRolesDAO.getRoleIdsByGuildId(guildId);
 
-        await GuildDAO.delete(guildId);
-
-        for (const roleId of roleIds) {
-            const { tuples: roleTuples } = await fgaClient.read({
-                object: `role:${roleId}`
-            });
-            
-            if (roleTuples?.length) {
-                await fgaClient.write({
-                    deletes: roleTuples.map(tuple => ({
-                        object: tuple.key.object,
-                        relation: tuple.key.relation,
-                        user: tuple.key.user
-                    }))
+        await prismaClient.$transaction(async (tx) => {
+            try {
+                await GuildDAO.delete(guildId, tx);
+        
+                for (const roleId of roleIds) {
+                    const { tuples: roleTuples } = await fgaClient.read({
+                        object: `role:${roleId}`
+                    });
+                    
+                    if (roleTuples?.length) {
+                        await fgaClient.write({
+                            deletes: roleTuples.map(tuple => ({
+                                object: tuple.key.object,
+                                relation: tuple.key.relation,
+                                user: tuple.key.user
+                            }))
+                        });
+                    }
+                }
+        
+                const { tuples: guildTuples } = await fgaClient.read({
+                    object: `guild:${guildId}`
                 });
+        
+                if (guildTuples?.length) {
+                    await fgaClient.write({
+                        deletes: guildTuples.map(tuple => ({
+                            object: tuple.key.object,
+                            relation: tuple.key.relation,
+                            user: tuple.key.user
+                        }))
+                    });
+                }
+            } catch (error) {
+                console.error('Error deleting guild:', error);
+                throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to delete guild');
             }
-        }
-
-        const { tuples: guildTuples } = await fgaClient.read({
-            object: `guild:${guildId}`
         });
 
-        if (guildTuples?.length) {
-            await fgaClient.write({
-                deletes: guildTuples.map(tuple => ({
-                    object: tuple.key.object,
-                    relation: tuple.key.relation,
-                    user: tuple.key.user
-                }))
-            });
-        }
     }
 }
 export default GuildService;
