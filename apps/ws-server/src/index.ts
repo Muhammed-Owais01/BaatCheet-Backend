@@ -4,6 +4,8 @@ import SocketService from "./services/socket.js";
 import { ensureTopics, startDLQConsumer, startMessageConsumer } from "./services/kafka.js";
 
 async function init() {
+  // Initialize OpenFGA authorization model
+  
   await ensureTopics();
   await startMessageConsumer();
   startDLQConsumer();
