@@ -102,7 +102,7 @@ services:
       - OPENFGA_LOG_FORMAT=json
     ports:
       - "8080:8080"   # HTTP API
-      - "808:8082"   # gRPC (optional)
+      - "8082:8082"   # gRPC (optional)
       - "3000:3000"   # Playground (disable in prod)
 
 volumes:
