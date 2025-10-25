@@ -1,0 +1,1 @@
+export { fgaClient } from './client/fga-client.js';
