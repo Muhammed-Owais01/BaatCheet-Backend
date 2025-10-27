@@ -127,7 +127,7 @@ export class GuildService {
     }
 
     static async updateGuild(guildId: string, data: Partial<Omit<Guild, "guildId" | "createdAt" | "updatedAt">>) {
-        const guild = this.getGuildById(guildId);
+        const guild = await this.getGuildById(guildId);
         if (!guild) {
             throw new RequestError(ExceptionType.NOT_FOUND, 'Guild not found');
         }
