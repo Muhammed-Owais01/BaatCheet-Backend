@@ -23,9 +23,9 @@ async function init() {
   const PORT = process.env.PORT ? process.env.PORT : 8000;
 
   // HTTP endpoint for sending messages
-  app.post('/api/messages/:guildId', async (req, res) => {
+  app.post('/api/messages', async (req, res) => {
     try {
-      const { guildId } = req.params;
+      const { guildId } = req.query;
       const { chatId, senderId, message } = req.body;
 
       if (guildId) {
