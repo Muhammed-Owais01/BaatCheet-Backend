@@ -28,13 +28,15 @@ async function init() {
       const { guildId } = req.params;
       const { chatId, senderId, message } = req.body;
 
-      const canSendMessage = await fgaClient.check({
-        user: `user:${senderId}`,
-        relation: 'can_send_messages',
-        object: `guild:${guildId}`,
-      });
-      if (!canSendMessage) {
-        return res.status(403).json({ success: false, message: 'User does not have permission to send messages in this guild' });
+      if (guildId) {
+          const canSendMessage = await fgaClient.check({
+          user: `user:${senderId}`,
+          relation: 'can_send_messages',
+          object: `guild:${guildId}`,
+        });
+        if (!canSendMessage) {
+          return res.status(403).json({ success: false, message: 'User does not have permission to send messages in this guild' });
+        }
       }
       
       // Use the same Redis publisher as socket service
