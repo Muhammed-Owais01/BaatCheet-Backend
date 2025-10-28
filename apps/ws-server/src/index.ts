@@ -23,18 +23,20 @@ async function init() {
   const PORT = process.env.PORT ? process.env.PORT : 8000;
 
   // HTTP endpoint for sending messages
-  app.post('/api/messages/:guildId', async (req, res) => {
+  app.post('/api/messages', async (req, res) => {
     try {
-      const { guildId } = req.params;
+      const { guildId } = req.query;
       const { chatId, senderId, message } = req.body;
 
-      const canSendMessage = await fgaClient.check({
-        user: `user:${senderId}`,
-        relation: 'can_send_messages',
-        object: `guild:${guildId}`,
-      });
-      if (!canSendMessage.allowed) {
-        return res.status(403).json({ success: false, message: 'User does not have permission to send messages in this guild' });
+      if (guildId) {
+          const canSendMessage = await fgaClient.check({
+          user: `user:${senderId}`,
+          relation: 'can_send_messages',
+          object: `guild:${guildId}`,
+        });
+        if (!canSendMessage) {
+          return res.status(403).json({ success: false, message: 'User does not have permission to send messages in this guild' });
+        }
       }
       
       // Use the same Redis publisher as socket service

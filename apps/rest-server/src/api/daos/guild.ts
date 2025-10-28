@@ -1,4 +1,5 @@
 import { PrismaClient, prismaClient, type Guild } from "@baatcheet/db";
+import { Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
 
 type TransactionClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
@@ -35,19 +36,25 @@ export class GuildDAO {
     }
 
     static async update(guildId: string, data: Partial<Omit<Guild, "guildId" | "createdAt" | "updatedAt">>, tx?: TransactionClient): Promise<Guild | null> {
-        const sets: string[] = [];
-        const values: any[] = [];    
+        const client = tx ?? prismaClient;
 
-        for (const [key, value] of Object.entries(data)) {
-            sets.push(`"${key}" = $${values.length + 1}`);
-            values.push(value);
+        // Whitelist columns that can be updated
+        const setFragments: Prisma.Sql[] = [];
+
+        if (data.guildName !== undefined) {
+            setFragments.push(Prisma.sql`"guildName" = ${data.guildName}`);
+        }
+        if (data.ownerId !== undefined) {
+            setFragments.push(Prisma.sql`"ownerId" = ${data.ownerId}`);
         }
 
-        if (sets.length === 0) return null;
+        if (setFragments.length === 0) return null;
 
-        const client = tx ?? prismaClient;
         const [guild] = await client.$queryRaw<Guild[]>`
-            UPDATE "guilds" SET ${sets.join(", ")} WHERE "guildId" = ${guildId} RETURNING *;
+            UPDATE "guilds"
+            SET ${Prisma.join(setFragments, ", ")}
+            WHERE "guildId" = ${guildId}
+            RETURNING *;
         `;
         return guild ?? null;
     }
