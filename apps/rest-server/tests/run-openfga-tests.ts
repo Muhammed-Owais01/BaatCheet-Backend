@@ -319,7 +319,7 @@ const testCases: TestCase[] = [
     actorKey: 'M',
     relation: 'can_message',
     expected: false,
-    description: 'Moderator can always message',
+    description: 'Moderator in different guild cannot message',
     prepare: async (ctx, guildIds) => {
       await addMembers(ctx, guildIds['H'], 'H', 'M');
       await createRoleAsOwner(ctx, guildIds['H'], 'H', 'Admin', ['moderator']); ctx.createdRoleNames.push('Admin');
@@ -471,7 +471,6 @@ async function run() {
         // attempt cleanup
         console.log('Attempting cleanup after failure...');
         await cleanup();
-        // you can call cleanup here if createdGuilds captured
       })();
     } catch (e) {
       console.error('Cleanup failed', e);
