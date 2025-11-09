@@ -56,8 +56,7 @@ class GuildController {
   }
 
   static async addMemberToGuild(req: Request, res: Response) {
-    const { guildId } = req.params;
-    const { memberId } = req.body;
+    const { guildId, memberId } = req.params;
     const userId = req.user!.userId;
 
     await GuildService.addMemberToGuild(guildId, userId, memberId);
@@ -74,6 +73,15 @@ class GuildController {
     const role = await GuildService.assignRoleToMember(guildId, roleName, userId, memberId);
 
     return res.status(200).json({ message: 'Role assigned to member successfully', role });
+  }
+
+  static async changeOwner(req: Request, res: Response) {
+    const { guildId, newOwnerId } = req.params;
+    const currentOwnerId = req.user!.userId;
+
+    await GuildService.changeOwner(guildId, currentOwnerId, newOwnerId);
+
+    return res.status(200).json({ message: 'Guild ownership transferred successfully' });
   }
 
   static async updateGuild(req: Request, res: Response) {
@@ -100,6 +108,16 @@ class GuildController {
     } catch {
       return res.status(500).json({ error: 'Failed to update guild' });
     }
+  }
+
+  static async removeRoleFromMember(req: Request, res: Response) {
+    const { guildId, memberId } = req.params;
+    const { roleName } = req.body;
+    const userId = req.user!.userId;
+
+    await GuildService.removeRoleFromMember(guildId, roleName, userId, memberId);
+
+    return res.status(200).json({ message: 'Role removed from member successfully' });
   }
 
   static async removeMemberFromGuild(req: Request, res: Response) {

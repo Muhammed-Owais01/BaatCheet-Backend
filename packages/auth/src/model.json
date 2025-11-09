@@ -1,0 +1,260 @@
+{
+  "schema_version": "1.1",
+  "type_definitions": [
+    {
+      "type": "user",
+      "relations": {},
+      "metadata": null
+    },
+    {
+      "type": "guild",
+      "relations": {
+        "owner": {
+          "this": {}
+        },
+        "moderator": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "relation": "owner"
+                }
+              }
+            ]
+          }
+        },
+        "member": {
+          "this": {}
+        },
+        "can_add_members": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "relation": "moderator"
+                }
+              }
+            ]
+          }
+        },
+        "can_ban_members": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "relation": "can_manage_permissions"
+                }
+              }
+            ]
+          }
+        },
+        "can_change_owner": {
+          "computedUserset": {
+            "relation": "owner"
+          }
+        },
+        "can_kick_members": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "relation": "can_manage_permissions"
+                }
+              }
+            ]
+          }
+        },
+        "can_manage_channels": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "relation": "can_manage_permissions"
+                }
+              }
+            ]
+          }
+        },
+        "can_manage_permissions": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "relation": "can_manage_roles"
+                }
+              }
+            ]
+          }
+        },
+        "can_manage_roles": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "relation": "moderator"
+                }
+              }
+            ]
+          }
+        },
+        "can_message": {
+          "union": {
+            "child": [
+              {
+                "this": {}
+              },
+              {
+                "computedUserset": {
+                  "relation": "member"
+                }
+              },
+              {
+                "computedUserset": {
+                  "relation": "moderator"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "relations": {
+          "owner": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "moderator": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              },
+              {
+                "type": "role",
+                "relation": "has_role"
+              }
+            ]
+          },
+          "member": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          },
+          "can_add_members": {
+            "directly_related_user_types": [
+              {
+                "type": "role",
+                "relation": "has_role"
+              }
+            ]
+          },
+          "can_ban_members": {
+            "directly_related_user_types": [
+              {
+                "type": "role",
+                "relation": "has_role"
+              }
+            ]
+          },
+          "can_change_owner": {
+            "directly_related_user_types": []
+          },
+          "can_kick_members": {
+            "directly_related_user_types": [
+              {
+                "type": "role",
+                "relation": "has_role"
+              }
+            ]
+          },
+          "can_manage_channels": {
+            "directly_related_user_types": [
+              {
+                "type": "role",
+                "relation": "has_role"
+              }
+            ]
+          },
+          "can_manage_permissions": {
+            "directly_related_user_types": [
+              {
+                "type": "role",
+                "relation": "has_role"
+              }
+            ]
+          },
+          "can_manage_roles": {
+            "directly_related_user_types": [
+              {
+                "type": "role",
+                "relation": "has_role"
+              }
+            ]
+          },
+          "can_message": {
+            "directly_related_user_types": [
+              {
+                "type": "role",
+                "relation": "has_role"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "role",
+      "relations": {
+        "parent": {
+          "this": {}
+        },
+        "has_role": {
+          "this": {}
+        }
+      },
+      "metadata": {
+        "relations": {
+          "parent": {
+            "directly_related_user_types": [
+              {
+                "type": "guild"
+              }
+            ]
+          },
+          "has_role": {
+            "directly_related_user_types": [
+              {
+                "type": "user"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

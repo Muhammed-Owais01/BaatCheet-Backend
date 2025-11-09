@@ -11,7 +11,9 @@ router.post('/:guildId/members/:memberId/assign', authHandler, asyncHandler(Guil
 router.get('/', authHandler, asyncHandler(GuildController.getAllGuilds));
 router.get('/:guildId', authHandler, asyncHandler(GuildController.getGuildById));
 router.patch('/:guildId', authHandler, asyncHandler(GuildController.updateGuild));
-router.post('/:guildId/members', authHandler, asyncHandler(GuildController.addMemberToGuild));
+router.patch('/:guildId/ownership/:newOwnerId', authHandler, asyncHandler(GuildController.changeOwner));
+router.post('/:guildId/members/:memberId', authHandler, asyncHandler(GuildController.addMemberToGuild));
+router.delete('/:guildId/members/:memberId/roles', authHandler, asyncHandler(GuildController.removeRoleFromMember));
 router.delete('/:guildId/members/:memberId', authHandler, asyncHandler(GuildController.removeMemberFromGuild));
 router.delete('/:guildId/roles', authHandler, asyncHandler(GuildController.deleteRole));
 router.delete('/:guildId', authHandler, asyncHandler(GuildController.deleteGuild));
