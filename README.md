@@ -1,3 +1,5 @@
+curl -X POST http://localhost:8080/stores -H "Content-Type: application/json" -d "{\"name\":\"BaatCheetGuildStore\"}"
+
 # Turborepo starter
 
 This Turborepo starter is maintained by the Turborepo core team.
