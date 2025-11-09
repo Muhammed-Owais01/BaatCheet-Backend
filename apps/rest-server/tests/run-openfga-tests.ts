@@ -415,8 +415,8 @@ async function run() {
     const guildResp2 = await createGuild(users.B.token!, 'Test Guild 2');
     createdGuilds.push({ guildId, owner: users.A });
     console.log(`Created guild '${guildId}' owned by ${users.A.username}`);
-    createdGuilds.push({ guildId: guildResp2.guildId, owner: users.B });
-    console.log(`Created guild '${guildResp2.guildId}' owned by ${users.B.username}`);
+    createdGuilds.push({ guildId: guildResp2.guildId, owner: users.H });
+    console.log(`Created guild '${guildResp2.guildId}' owned by ${users.H.username}`);
 
     // ensure a user exists in the users map
     async function ensureUserExists(usersMap: Record<string, Account>, key: string) {
