@@ -17,7 +17,7 @@ type guild
     define can_manage_channels: [role#has_role] or can_manage_permissions
     define can_manage_permissions: [role#has_role] or can_manage_roles
     define can_manage_roles: [role#has_role] or moderator
-    define can_message: [role#has_role] or member
+    define can_message: [role#has_role] or member or moderator
 
 type role
   relations
