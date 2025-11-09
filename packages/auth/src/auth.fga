@@ -1,0 +1,25 @@
+model
+  schema 1.1
+
+type user
+
+type guild
+  relations
+    define owner: [user]
+    define moderator: [user] or owner
+    define member: [user]
+    
+    # Guild permissions (some granted to roles)
+    define can_add_members: [role#has_role] or moderator
+    define can_ban_members: [role#has_role] or can_manage_permissions
+    define can_change_owner: owner
+    define can_kick_members: [role#has_role] or can_manage_permissions
+    define can_manage_channels: [role#has_role] or can_manage_permissions
+    define can_manage_permissions: [role#has_role] or can_manage_roles
+    define can_manage_roles: [role#has_role] or moderator
+    define can_message: [role#has_role] or member or moderator
+
+type role
+  relations
+    define parent: [guild]        # which guild it belongs to
+    define has_role: [user]         # who has this role

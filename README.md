@@ -1,5 +1,12 @@
 # Turborepo starter
 
+## OpenFGA Store Setup
+
+If you are using [OpenFGA](https://openfga.dev/) for authorization in this project, you will need to create a store before proceeding. Make sure you have an OpenFGA server running locally (by default on `http://localhost:8080`). You can create a new store by running the following command:
+
+```sh
+curl -X POST http://localhost:8080/stores -H "Content-Type: application/json" -d "{\"name\":\"BaatCheetGuildStore\"}"
+
 This Turborepo starter is maintained by the Turborepo core team.
 
 ## Using this example
