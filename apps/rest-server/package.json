@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node dist/index",
     "build": "tsc -p .",
-    "dev": "tsc-watch --onSuccess \"node dist/index.js\""
+    "dev": "tsc-watch --onSuccess \"node dist/index.js\"",
+    "test:openfga": "node --loader ts-node/esm tests/run-openfga-tests.ts"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
@@ -14,14 +15,17 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.10",
     "@types/node": "^24.3.1",
+    "@types/node-fetch": "^2.6.13",
+    "axios": "^1.13.2",
+    "node-fetch": "^3.3.2",
     "ts-node": "^10.9.2",
     "tsc-watch": "^7.1.1",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@baatcheet/auth": "*",
     "@baatcheet/db": "*",
     "@baatcheet/env": "*",
-    "@baatcheet/auth": "*",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
