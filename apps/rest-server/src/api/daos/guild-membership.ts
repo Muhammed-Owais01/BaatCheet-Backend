@@ -27,8 +27,8 @@ export class GuildMembershipDAO {
     }
 
     static async findByGuildIdAndMemberId(guildId: string, memberId: string): Promise<string[] | null> {
-        const memberships = await prismaClient.$queryRaw<Array<{ roleId: string }>>`
-            SELECT roleId FROM "guildmemberships" WHERE "guildId" = ${guildId} AND "userId" = ${memberId};
+        const memberships = await prismaClient.$queryRaw<GuildMembership[]>`
+            SELECT * FROM "guildmemberships" WHERE "guildId" = ${guildId} AND "userId" = ${memberId};
         `;
         const roleIds = memberships.map(m => m.roleId);
         return roleIds.length > 0 ? roleIds : null;
@@ -38,6 +38,13 @@ export class GuildMembershipDAO {
         const client = tx ?? prismaClient;
         await client.$queryRaw`
             DELETE FROM "guildmemberships" WHERE "guildId" = ${guildId} AND "userId" = ${userId};
+        `;
+    }
+
+    static async deleteRoleFromMember(guildId: string, memberId: string, roleId: string, tx?: TransactionClient): Promise<void> {
+        const client = tx ?? prismaClient;
+        await client.$queryRaw`
+            DELETE FROM "guildmemberships" WHERE "guildId" = ${guildId} AND "userId" = ${memberId} AND "roleId" = ${roleId};
         `;
     }
 

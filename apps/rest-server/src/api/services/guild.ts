@@ -144,8 +144,7 @@ export class GuildService {
 
         return await prismaClient.$transaction(async (tx) => {
             try {
-                await GuildMembershipDAO.delete(guildId, memberId, tx);
-                console.log('Deleted membership from DB');
+                await GuildMembershipDAO.deleteRoleFromMember(guildId, memberId, roleId, tx);
                 await fgaClient.write({
                     deletes: [{
                         user: `user:${memberId}`,
@@ -153,7 +152,6 @@ export class GuildService {
                         object: `role:${roleId}`
                     }]
                 });
-                console.log('Deleted role tuple from FGA');
             }
             catch (error) {
                 console.error('Error removing role from member:', error);
