@@ -126,6 +126,42 @@ export class GuildService {
 
     }
 
+    static async removeRoleFromMember(guildId: string, roleName: string, userId: string, memberId: string) {
+        const canRemoveRole = await fgaClient.check({
+            user: `user:${userId}`,
+            relation: "can_manage_roles",
+            object: `guild:${guildId}`
+        });
+
+        if (!canRemoveRole.allowed) {
+            throw new RequestError(ExceptionType.FORBIDDEN, 'You do not have permission to remove roles in this guild');
+        }
+
+        const roleId = await GuildRolesDAO.getRoleIdByGuildIdAndRoleName(guildId, roleName);
+        if (!roleId) {
+            throw new RequestError(ExceptionType.NOT_FOUND, 'Role not found in the guild');
+        }
+
+        return await prismaClient.$transaction(async (tx) => {
+            try {
+                await GuildMembershipDAO.delete(guildId, memberId, tx);
+                console.log('Deleted membership from DB');
+                await fgaClient.write({
+                    deletes: [{
+                        user: `user:${memberId}`,
+                        relation: "has_role",
+                        object: `role:${roleId}`
+                    }]
+                });
+                console.log('Deleted role tuple from FGA');
+            }
+            catch (error) {
+                console.error('Error removing role from member:', error);
+                throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to remove role from member');
+            }
+        });
+    }
+
     static async updateGuild(guildId: string, data: Partial<Omit<Guild, "guildId" | "createdAt" | "updatedAt">>) {
         const guild = this.getGuildById(guildId);
         if (!guild) {
@@ -317,6 +353,59 @@ export class GuildService {
             }
         });
 
+    }
+
+    static async changeOwner(guildId: string, currentUserId: string, newOwnerId: string) {
+        // permission: only a principal allowed can_change_owner (model: owner)
+        const canChange = await fgaClient.check({
+            user: `user:${currentUserId}`,
+            relation: "can_change_owner",
+            object: `guild:${guildId}`
+        });
+        if (!canChange.allowed) {
+            throw new RequestError(ExceptionType.FORBIDDEN, "You do not have permission to change guild ownership");
+        }
+
+        const guild = await this.getGuildById(guildId);
+        if (!guild) {
+            throw new RequestError(ExceptionType.NOT_FOUND, "Guild not found");
+        }
+
+        // require the new owner to be a member (business decision — change if you allow non-members)
+        const memberRoleIds = await GuildMembershipDAO.findByGuildIdAndMemberId(guildId, newOwnerId);
+        if (!memberRoleIds) {
+            throw new RequestError(ExceptionType.BAD_REQUEST, "New owner must be a member of the guild");
+        }
+
+        // Update DB (ownerId) in a transaction
+        const updated = await prismaClient.$transaction(async (tx) => {
+            const updatedGuild = await GuildDAO.update(guildId, { ownerId: newOwnerId }, tx);
+            if (!updatedGuild) throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, "Failed to update guild owner");
+            return updatedGuild;
+        });
+
+        // Update OpenFGA tuples: remove old owner tuple, add new owner tuple
+        // Note: FGA writes are external and not part of DB tx; we perform them after DB change.
+        try {
+            await fgaClient.write({
+                deletes: [{
+                    user: `user:${guild.ownerId}`,
+                    relation: "owner",
+                    object: `guild:${guildId}`
+                }],
+                writes: [{
+                    user: `user:${newOwnerId}`,
+                    relation: "owner",
+                    object: `guild:${guildId}`
+                }]
+            });
+        } catch (err) {
+            // log and surface an error — DB already changed; you may choose to rollback DB change
+            console.error("Failed to update OpenFGA owner tuples after DB owner update:", err);
+            throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, "Failed to update ownership in permission store");
+        }
+
+        return updated;
     }
 }
 export default GuildService;
