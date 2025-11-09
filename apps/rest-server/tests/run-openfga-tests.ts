@@ -319,7 +319,7 @@ const testCases: TestCase[] = [
     actorKey: 'M',
     relation: 'can_message',
     expected: false,
-    description: 'Moderator can always message',
+    description: 'Moderator in different guild cannot message',
     prepare: async (ctx, guildIds) => {
       await addMembers(ctx, guildIds['H'], 'H', 'M');
       await createRoleAsOwner(ctx, guildIds['H'], 'H', 'Admin', ['moderator']); ctx.createdRoleNames.push('Admin');
