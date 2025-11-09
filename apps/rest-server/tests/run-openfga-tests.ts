@@ -471,7 +471,6 @@ async function run() {
         // attempt cleanup
         console.log('Attempting cleanup after failure...');
         await cleanup();
-        // you can call cleanup here if createdGuilds captured
       })();
     } catch (e) {
       console.error('Cleanup failed', e);
