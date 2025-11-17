@@ -55,6 +55,16 @@ class GuildController {
     }
   }
 
+  static async getAllGuildsByUserId(req: Request, res: Response) {
+    try {
+      const userId = req.user!.userId;
+      const guilds = await GuildService.getAllGuildsByUserId(userId);
+      return res.status(200).json(guilds);
+    } catch {
+      return res.status(500).json({ error: 'Failed to fetch guilds for user' });
+    }
+  }
+
   static async addMemberToGuild(req: Request, res: Response) {
     const { guildId, memberId } = req.params;
     const userId = req.user!.userId;
