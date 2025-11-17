@@ -47,6 +47,17 @@ export class GuildService {
         return GuildDAO.findAll();
     }
 
+    static async getAllGuildsByUserId(userId: string) {
+        const guilds = await GuildMembershipDAO.findAllGuildByUserId(userId);
+
+        const detailedGuilds = await Promise.all(guilds.map(async (guildMembership) => {
+            const guild = await GuildDAO.findById(guildMembership.guildId);
+            return guild;
+        }));
+
+        return detailedGuilds.filter((guild): guild is Guild => guild !== null);
+    }
+
     static async createRole(guildId: string, roleName: string, userId: string, permissions: string[], color?: string) {
         const canCreateRole = await fgaClient.check({
             user: `user:${userId}`,
