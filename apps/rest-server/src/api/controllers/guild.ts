@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import GuildService from '../services/guild.js';
+import RequestError from '../errors/request-error.js';
+import { ExceptionType } from '../errors/exceptions.js';
 
 class GuildController {
   static async createGuild(req: Request, res: Response) {
@@ -8,17 +10,62 @@ class GuildController {
       const ownerId = req.user!.userId;
 
       if (!guildName || typeof guildName !== 'string' || guildName.trim().length === 0) {
-        return res.status(400).json({ error: 'guildName is required' });
+        throw new RequestError(ExceptionType.BAD_REQUEST, 'Guild name is required and must be a non-empty string');
       }
 
       const guild = await GuildService.createGuild(guildName.trim(), ownerId);
       return res.status(201).json(guild);
     } catch (err: any) {
       if (err?.message?.includes('already exists')) {
-        return res.status(409).json({ error: err.message });
+        return new RequestError(ExceptionType.CONFLICT, 'Guild with this name already exists');
       }
-      return res.status(500).json({ error: 'Failed to create guild' });
+      return new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to create guild');
     }
+  }
+
+  static async createGuildChat(req: Request, res: Response) {
+    const { guildId } = req.params;
+    const { chatName } = req.body;
+    const userId = req.user!.userId;
+
+    const chat = await GuildService.createGuildChat(guildId, chatName, userId);
+
+    return res.status(201).json({ message: 'Guild chat created successfully', chat });
+  }
+
+  static async joinGuild(req: Request, res: Response) {
+    const { guildId } = req.params;
+    const userId = req.user!.userId;
+    const guild = await GuildService.joinGuild(guildId, userId);
+
+    return res.status(200).json({
+      message: 'Joined guild successfully',
+      guildId: guild.guildId
+    });
+  }
+
+  static async getPermissionsInGuild(req: Request, res: Response) {
+    const { guildId } = req.params;
+    const userId = req.user!.userId;
+    const permissions = await GuildService.getPermissionsInGuildByMemberId(guildId, userId, userId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Permissions fetched successfully',
+      permissions
+    });
+  }
+
+  static async getRolesInGuildByMemberId(req: Request, res: Response) {
+    const { guildId, memberId } = req.params;
+    const userId = req.user!.userId;
+    const roles = await GuildService.getRolesInGuildByMemberId(guildId, userId, memberId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Roles fetched successfully',
+      roles
+    });
   }
 
   static async createRole(req: Request, res: Response) {
@@ -32,18 +79,15 @@ class GuildController {
   }
 
   static async getGuildById(req: Request, res: Response) {
-    try {
-      const { guildId } = req.params;
-      const guild = await GuildService.getGuildById(guildId);
+    const { guildId } = req.params;
+    const userId = req.user!.userId;
+    const guild = await GuildService.getGuildById(guildId, userId);
 
-      if (!guild) {
-        return res.status(404).json({ error: 'Guild not found' });
-      }
-
-      return res.status(200).json(guild);
-    } catch {
-      return res.status(500).json({ error: 'Failed to fetch guild' });
+    if (!guild) {
+      throw new RequestError(ExceptionType.NOT_FOUND, 'Guild not found');
     }
+
+    return res.status(200).json(guild);
   }
 
   static async getAllGuilds(_req: Request, res: Response) {
@@ -63,6 +107,19 @@ class GuildController {
     } catch {
       return res.status(500).json({ error: 'Failed to fetch guilds for user' });
     }
+  }
+
+  static async getAllMembersByGuildId(req: Request, res: Response) {
+    const { guildId } = req.params;
+    const userId = req.user!.userId;
+
+    const members = await GuildService.getAllMembersByGuildId(guildId, userId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Members fetched successfully',
+      members
+    });
   }
 
   static async addMemberToGuild(req: Request, res: Response) {
@@ -94,6 +151,16 @@ class GuildController {
     return res.status(200).json({ message: 'Guild ownership transferred successfully' });
   }
 
+  static async updateGuildChat(req: Request, res: Response) {
+    const { guildId, chatId } = req.params;
+    const { chatName } = req.body;
+    const userId = req.user!.userId;
+
+    const updatedChat = await GuildService.updateGuildChat(guildId, chatId, chatName, userId);
+
+    return res.status(200).json({ message: 'Guild chat updated successfully', chat: updatedChat });
+  }
+
   static async updateGuild(req: Request, res: Response) {
     try {
       const { guildId } = req.params;
@@ -118,6 +185,15 @@ class GuildController {
     } catch {
       return res.status(500).json({ error: 'Failed to update guild' });
     }
+  }
+
+  static async deleteGuildChat(req: Request, res: Response) {
+    const { guildId, chatId } = req.params;
+    const userId = req.user!.userId;
+
+    await GuildService.deleteGuildChat(guildId, chatId, userId);
+
+    return res.status(200).json({ message: 'Guild chat deleted successfully' });
   }
 
   static async removeRoleFromMember(req: Request, res: Response) {
