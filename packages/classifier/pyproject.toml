@@ -1,0 +1,24 @@
+[project]
+name = "fastapi-toxicity-api"
+version = "0.1.0"
+description = "A FastAPI app for toxicity prediction using a CNN model"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi",
+  "uvicorn",
+  "pydantic",
+  "tensorflow>=2.13.0",  # Pin version
+  "joblib",
+  "contractions",
+]
+
+[dependency-groups]
+dev = [
+  "pytest",
+  "flake8",
+]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"

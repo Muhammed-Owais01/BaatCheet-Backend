@@ -104,7 +104,17 @@ services:
       - "8080:8080"   # HTTP API
       - "8082:8082"   # gRPC (optional)
       - "3000:3000"   # Playground (disable in prod)
-
+  
+  toxicity-api:
+    build: ./packages/classifier
+    container_name: toxicity-api
+    restart: always
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+      - postgres
+      - kafka
 volumes:
   pg_data:
   redis_data:

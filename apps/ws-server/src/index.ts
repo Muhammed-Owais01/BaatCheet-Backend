@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import SocketService from "./services/socket.js";
 import { ensureTopics, startDLQConsumer, startMessageConsumer } from "./services/kafka.js";
 import { fgaClient } from "@baatcheet/auth";
+import { checkToxicity } from "./services/toxicity.js";
 
 async function init() {
   // Initialize OpenFGA authorization model
@@ -39,8 +40,18 @@ async function init() {
         }
       }
       
-      // Use the same Redis publisher as socket service
-      await socketService.publishMessage(chatId, senderId, message);
+      const toxicity = await checkToxicity(message);
+      if (toxicity.toxic) {
+        // Add a `flagged` property instead of blocking
+        await socketService.publishMessage(chatId, senderId, JSON.stringify({
+          text: message,
+          flagged: true,
+          toxicityScore: toxicity.score
+        }));
+      } else {
+        await socketService.publishMessage(chatId, senderId, message);
+      }
+
       
       res.status(200).json({ success: true, message: 'Message sent successfully' });
     } catch (error: unknown) {
