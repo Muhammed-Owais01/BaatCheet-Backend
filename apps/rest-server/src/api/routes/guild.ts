@@ -12,6 +12,7 @@ router.delete('/:guildId/leave', authHandler, asyncHandler(GuildController.leave
 router.get('/:guildId/permissions', authHandler, asyncHandler(GuildController.getPermissionsInGuild));
 
 router.get('/:guildId/roles/:memberId', authHandler, asyncHandler(GuildController.getRolesInGuildByMemberId));
+router.get('/:guildId/roles', authHandler, asyncHandler(GuildController.getRolesInGuild));
 router.post('/:guildId/roles', authHandler, asyncHandler(GuildController.createRole));
 router.post('/:guildId/members/:memberId/assign', authHandler, asyncHandler(GuildController.assignRoleToMember));
 
