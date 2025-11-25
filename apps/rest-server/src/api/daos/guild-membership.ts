@@ -15,7 +15,11 @@ export class GuildMembershipDAO {
 
     static async findAllGuildByUserId(userId: string): Promise<GuildMembership[]> {
         return prismaClient.$queryRaw<GuildMembership[]>`
-            SELECT * FROM "guildmemberships" WHERE "userId" = ${userId} ORDER BY "createdAt" DESC;
+            SELECT DISTINCT g."guildId", g."createdAt"
+            FROM "public"."guildmemberships" gm
+            JOIN "public"."guilds" g ON gm."guildId" = g."guildId"
+            WHERE gm."userId" = ${userId}
+            ORDER BY g."createdAt" DESC;
         `;
     }
 
