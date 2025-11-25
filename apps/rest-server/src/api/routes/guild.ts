@@ -14,7 +14,7 @@ router.get('/:guildId/permissions', authHandler, asyncHandler(GuildController.ge
 router.get('/:guildId/roles/:memberId', authHandler, asyncHandler(GuildController.getRolesInGuildByMemberId));
 router.get('/:guildId/roles', authHandler, asyncHandler(GuildController.getRolesInGuild));
 router.post('/:guildId/roles', authHandler, asyncHandler(GuildController.createRole));
-router.post('/:guildId/members/:memberId/assign', authHandler, asyncHandler(GuildController.assignRoleToMember));
+router.post('/:guildId/members/:memberId/roles/:roleId', authHandler, asyncHandler(GuildController.assignRoleToMember));
 
 // router.get('/', authHandler, asyncHandler(GuildController.getAllGuilds));
 router.get('/user', authHandler, asyncHandler(GuildController.getAllGuildsByUserId));
