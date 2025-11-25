@@ -15,6 +15,13 @@ export class GuildRolesDAO {
         return role;
     }
 
+    static async findById(roleId: string): Promise<GuildRole | null> {
+        const [role] = await prismaClient.$queryRaw<GuildRole[]>`
+            SELECT * FROM "guildroles" WHERE "roleId" = ${roleId} LIMIT 1;
+        `;
+        return role ?? null;
+    }
+
     static async getRoleNameByRoleIdAndGuildId(
         guildId: string,
         roleIds: string[]
@@ -27,6 +34,21 @@ export class GuildRolesDAO {
               AND "roleId" IN (${Prisma.join(roleIds)})
         `;
         return rows;
+    }
+
+    static async findByGuildIdAndRoleName(guildId: string, roleName: string): Promise<GuildRole | null> {
+        const [role] = await prismaClient.$queryRaw<GuildRole[]>`
+            SELECT * FROM "guildroles" WHERE "guildId" = ${guildId} AND "roleName" = ${roleName} LIMIT 1;
+        `;
+        return role ?? null;
+    }
+
+    static async findUniqueRolesByGuildId(guildId: string): Promise<Array<{ roleId: string; roleName: string; color: string }>> {
+        return prismaClient.$queryRaw<Array<{ roleId: string; roleName: string; color: string }>>`
+            SELECT DISTINCT r."roleId", r."roleName", r."color"
+            FROM "public"."guildroles" r
+            WHERE r."guildId" = ${guildId}
+        `;
     }
 
     static async getRoleIdByGuildIdAndRoleName(guildId: string, roleName: string): Promise<string | null> {
