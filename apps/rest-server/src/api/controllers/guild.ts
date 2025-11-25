@@ -14,7 +14,11 @@ class GuildController {
       }
 
       const guild = await GuildService.createGuild(guildName.trim(), ownerId);
-      return res.status(201).json(guild);
+      return res.status(201).json({
+        success: true,
+        message: 'Guild created successfully',
+        guildId: guild.guildId
+      });
     } catch (err: any) {
       if (err?.message?.includes('already exists')) {
         return new RequestError(ExceptionType.CONFLICT, 'Guild with this name already exists');
@@ -30,7 +34,11 @@ class GuildController {
 
     const chat = await GuildService.createGuildChat(guildId, chatName, userId);
 
-    return res.status(201).json({ message: 'Guild chat created successfully', chat });
+    return res.status(201).json({
+      success: true,
+      message: 'Guild chat created successfully',
+      chat
+    });
   }
 
   static async joinGuild(req: Request, res: Response) {
@@ -39,8 +47,20 @@ class GuildController {
     const guild = await GuildService.joinGuild(guildId, userId);
 
     return res.status(200).json({
+      success: true,
       message: 'Joined guild successfully',
       guildId: guild.guildId
+    });
+  }
+
+  static async leaveGuild(req: Request, res: Response) {
+    const { guildId } = req.params;
+    const userId = req.user!.userId;
+    await GuildService.leaveGuild(guildId, userId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Left guild successfully'
     });
   }
 
@@ -68,6 +88,18 @@ class GuildController {
     });
   }
 
+  static async getRolesInGuild(req: Request, res: Response) {
+    const { guildId } = req.params;
+    const userId = req.user!.userId;
+    const roles = await GuildService.getRolesInGuild(guildId, userId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Roles fetched successfully.',
+      roles
+    });
+  }
+
   static async createRole(req: Request, res: Response) {
     const { guildId } = req.params;
     const { roleName, permissions, color } = req.body;
@@ -75,7 +107,11 @@ class GuildController {
 
     const role = await GuildService.createRole(guildId, roleName, userId, permissions, color);
 
-    return res.status(201).json({ message: 'Role created successfully', role });
+    return res.status(201).json({
+      success: true,
+      message: 'Role created successfully',
+      role
+    });
   }
 
   static async getGuildById(req: Request, res: Response) {
@@ -87,26 +123,30 @@ class GuildController {
       throw new RequestError(ExceptionType.NOT_FOUND, 'Guild not found');
     }
 
-    return res.status(200).json(guild);
+    return res.status(200).json({
+      success: true,
+      message: 'Guild fetched successfully',
+      guild
+    });
   }
 
   static async getAllGuilds(_req: Request, res: Response) {
-    try {
-      const guilds = await GuildService.getAllGuilds();
-      return res.status(200).json(guilds);
-    } catch {
-      return res.status(500).json({ error: 'Failed to fetch guilds' });
-    }
+    const guilds = await GuildService.getAllGuilds();
+    return res.status(200).json({
+      success: true,
+      message: 'Guilds fetched successfully',
+      guilds
+    });
   }
 
   static async getAllGuildsByUserId(req: Request, res: Response) {
-    try {
-      const userId = req.user!.userId;
-      const guilds = await GuildService.getAllGuildsByUserId(userId);
-      return res.status(200).json(guilds);
-    } catch {
-      return res.status(500).json({ error: 'Failed to fetch guilds for user' });
-    }
+    const userId = req.user!.userId;
+    const guilds = await GuildService.getAllGuildsByUserId(userId);
+    return res.status(200).json({
+      success: true,
+      message: 'Guilds fetched successfully',
+      guilds
+    });
   }
 
   static async getAllMembersByGuildId(req: Request, res: Response) {
@@ -128,18 +168,24 @@ class GuildController {
 
     await GuildService.addMemberToGuild(guildId, userId, memberId);
 
-    return res.status(200).json({ message: 'Member added to guild successfully' });
+    return res.status(200).json({
+      success: true,
+      message: 'Member added to guild successfully'
+    });
 
   }
 
   static async assignRoleToMember(req: Request, res: Response) {
-    const { guildId, memberId } = req.params;
-    const { roleName } = req.body;
+    const { guildId, memberId, roleId } = req.params;
     const userId = req.user!.userId;
 
-    const role = await GuildService.assignRoleToMember(guildId, roleName, userId, memberId);
+    const role = await GuildService.assignRoleToMember(guildId, roleId, userId, memberId);
 
-    return res.status(200).json({ message: 'Role assigned to member successfully', role });
+    return res.status(200).json({
+      success: true,
+      message: 'Role assigned to member successfully',
+      role
+    });
   }
 
   static async changeOwner(req: Request, res: Response) {
@@ -148,7 +194,10 @@ class GuildController {
 
     await GuildService.changeOwner(guildId, currentOwnerId, newOwnerId);
 
-    return res.status(200).json({ message: 'Guild ownership transferred successfully' });
+    return res.status(200).json({
+      success: true,
+      message: 'Guild ownership transferred successfully'
+    });
   }
 
   static async updateGuildChat(req: Request, res: Response) {
@@ -158,7 +207,11 @@ class GuildController {
 
     const updatedChat = await GuildService.updateGuildChat(guildId, chatId, chatName, userId);
 
-    return res.status(200).json({ message: 'Guild chat updated successfully', chat: updatedChat });
+    return res.status(200).json({
+      success: true,
+      message: 'Guild chat updated successfully',
+      chat: updatedChat
+    });
   }
 
   static async updateGuild(req: Request, res: Response) {
@@ -172,18 +225,22 @@ class GuildController {
       }
 
       if (Object.keys(updateData).length === 0) {
-        return res.status(400).json({ error: 'No valid fields to update' });
+        throw new RequestError(ExceptionType.BAD_REQUEST, 'No valid fields to update');
       }
 
       const updated = await GuildService.updateGuild(guildId, updateData as any);
 
       if (!updated) {
-        return res.status(404).json({ error: 'Guild not found' });
+        throw new RequestError(ExceptionType.NOT_FOUND, 'Guild not found');
       }
 
-      return res.status(200).json(updated);
+      return res.status(200).json({
+        success: true,
+        message: 'Guild updated successfully',
+        guild: updated
+      });
     } catch {
-      return res.status(500).json({ error: 'Failed to update guild' });
+      throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to update guild');
     }
   }
 
@@ -193,17 +250,22 @@ class GuildController {
 
     await GuildService.deleteGuildChat(guildId, chatId, userId);
 
-    return res.status(200).json({ message: 'Guild chat deleted successfully' });
+    return res.status(200).json({
+      success: true,
+      message: 'Guild chat deleted successfully'
+    });
   }
 
   static async removeRoleFromMember(req: Request, res: Response) {
-    const { guildId, memberId } = req.params;
-    const { roleName } = req.body;
+    const { guildId, memberId, roleId } = req.params;
     const userId = req.user!.userId;
 
-    await GuildService.removeRoleFromMember(guildId, roleName, userId, memberId);
+    await GuildService.removeRoleFromMember(guildId, roleId, userId, memberId);
 
-    return res.status(200).json({ message: 'Role removed from member successfully' });
+    return res.status(200).json({
+      success: true,
+      message: 'Role removed from member successfully'
+    });
   }
 
   static async removeMemberFromGuild(req: Request, res: Response) {
@@ -212,7 +274,10 @@ class GuildController {
 
     await GuildService.removeMemberFromGuild(guildId, userId, memberId);
 
-    return res.status(200).json({ message: 'Member removed from guild successfully' });
+    return res.status(200).json({
+      success: true,
+      message: 'Member removed from guild successfully'
+    });
   }
 
   static async deleteRole(req: Request, res: Response) {
@@ -222,7 +287,10 @@ class GuildController {
 
     await GuildService.deleteRole(guildId, roleName, userId);
 
-    return res.status(200).json({ message: 'Role deleted successfully' });
+    return res.status(200).json({
+      success: true,
+      message: 'Role deleted successfully'
+    });
   }
 
   static async deleteGuild(req: Request, res: Response) {
@@ -231,7 +299,10 @@ class GuildController {
     
     await GuildService.deleteGuild(guildId, userId);
 
-    return res.status(200).json({ message: 'Guild deleted successfully' });
+    return res.status(200).json({
+      success: true,
+      message: 'Guild deleted successfully'
+    });
   }
 }
 
