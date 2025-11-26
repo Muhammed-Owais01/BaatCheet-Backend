@@ -42,14 +42,17 @@ class SocketService {
       console.log(`New Socket Connect`, socket.id);
 
       // Allow clients to join specific chat rooms
-      socket.on("join:chat", async (chatId: string) => {
+      socket.on("join:chat", async (data: string) => {
+        let chat: string | undefined;
         try {
+          const { userId, chatId } = JSON.parse(data);
+          chat = chatId;
           // Validate that the user is a member of the chat before joining
-          await validateChatMembership(socket.userId, chatId);
+          await validateChatMembership(userId, chatId);
           socket.join(`chat:${chatId}`);
-          console.log(`${socket.id} joined chat:${chatId}`);
+          console.log(`${socket.id} joined chat:${chat}`);
         } catch (err) {
-          console.warn(`Unauthorized join attempt by socket ${socket.id} for chat:${chatId}`);
+          console.warn(`Unauthorized join attempt by socket ${socket.id} for chat:${chat}`);
           socket.emit("error", { message: "You are not authorized to join this chat." });
         }
       });
