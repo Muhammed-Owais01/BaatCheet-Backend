@@ -1,6 +1,4 @@
-import { PrismaClient, prismaClient, type GuildMembership } from "@baatcheet/db";
-
-type TransactionClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
+import { GuildRole, prismaClient, type GuildMembership } from "@baatcheet/db";
 
 export class GuildMembershipDAO {
     static async create(guildId: string, userId: string, roleId: string, tx?: TransactionClient): Promise<GuildMembership> {
