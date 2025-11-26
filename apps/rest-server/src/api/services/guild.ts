@@ -7,6 +7,7 @@ import { ExceptionType } from "../errors/exceptions.js";
 import { fgaClient } from "@baatcheet/auth";
 import ChatDAO from "../daos/chat.js";
 import { guildPermissions } from "../constants/guild-permissions.js";
+import GuildBanDAO from "../daos/guild-ban.js";
 
 export class GuildService {
     static async createGuild(guildName: string, ownerId: string) {
@@ -657,6 +658,85 @@ export class GuildService {
                 throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to delete role');
             }
         });
+    }
+
+    static async banUserFromGuild(guildId: string, userId: string, memberId: string) {
+        const canBanMember = await fgaClient.check({
+            user: `user:${userId}`,
+            relation: "can_ban_members",
+            object: `guild:${guildId}`
+        });
+        if (!canBanMember.allowed) {
+            throw new RequestError(ExceptionType.FORBIDDEN, 'You do not have permission to ban members from this guild');
+        }
+
+        const guild = await GuildDAO.findById(guildId);
+        if (!guild) {
+            throw new RequestError(ExceptionType.NOT_FOUND, 'Guild not found');
+        }
+
+        if (memberId === guild.ownerId) {
+            throw new RequestError(ExceptionType.BAD_REQUEST, 'Cannot ban the owner from the guild');
+        }
+
+        const roleIds = await GuildMembershipDAO.findByGuildIdAndMemberId(guildId, memberId);
+        if (!roleIds) {
+            throw new RequestError(ExceptionType.NOT_FOUND, 'Guild membership not found for the member');
+        }
+
+        await prismaClient.$transaction(async (tx) => {
+            try {
+                await GuildBanDAO.create(guildId, memberId, tx);
+                await this.deleteUserFromGuild(memberId, guildId, roleIds, tx);
+            } catch (error) {
+                console.error('Error banning member from guild:', error);
+                throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to ban member from guild');
+            }
+        });
+    }
+
+    static async unbanUserFromGuild(guildId: string, userId: string, memberId: string) {
+        const canUnbanMember = await fgaClient.check({
+            user: `user:${userId}`,
+            relation: "can_ban_members",
+            object: `guild:${guildId}`
+        });
+
+        if (!canUnbanMember.allowed) {
+            throw new RequestError(ExceptionType.FORBIDDEN, 'You do not have permission to unban members from this guild');
+        }
+
+        const guild = await GuildDAO.findById(guildId);
+        if (!guild) {
+            throw new RequestError(ExceptionType.NOT_FOUND, 'Guild not found');
+        }
+
+        await prismaClient.$transaction(async (tx) => {
+            try {
+                await GuildBanDAO.delete(guildId, memberId, tx);
+            } catch (error) {
+                console.error('Error unbanning member from guild:', error);
+                throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to unban member from guild');
+            }
+        });
+    }
+
+    static async getAllBansByGuildId(guildId: string, userId: string) {
+        const canViewBans = await fgaClient.check({
+            user: `user:${userId}`,
+            relation: "can_ban_members",
+            object: `guild:${guildId}`
+        });
+        if (!canViewBans.allowed) {
+            throw new RequestError(ExceptionType.FORBIDDEN, 'You do not have permission to view bans in this guild');
+        }
+
+        const guildMembership = await GuildMembershipDAO.findByGuildIdAndMemberId(guildId, userId);
+        if (!guildMembership) {
+            throw new RequestError(ExceptionType.FORBIDDEN, 'You are not a member of this guild');
+        }
+
+        return await GuildBanDAO.findAllByGuildId(guildId);
     }
 
     static async deleteGuild(guildId: string, userId: string) {

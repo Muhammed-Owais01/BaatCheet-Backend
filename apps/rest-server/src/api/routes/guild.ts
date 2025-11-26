@@ -25,6 +25,10 @@ router.patch('/:guildId', authHandler, asyncHandler(GuildController.updateGuild)
 router.patch('/:guildId/ownership/:newOwnerId', authHandler, asyncHandler(GuildController.changeOwner));
 router.post('/:guildId/members/:memberId', authHandler, asyncHandler(GuildController.addMemberToGuild));
 
+router.post('/:guildId/members/:userId/ban', authHandler, asyncHandler(GuildController.banUserFromGuild));
+router.post('/:guildId/members/:userId/unban', authHandler, asyncHandler(GuildController.unbanUserFromGuild));
+router.get('/:guildId/bans', authHandler, asyncHandler(GuildController.getAllBansByGuildId));
+
 router.patch('/:guildId/chats/:chatId', authHandler, asyncHandler(GuildController.updateGuildChat));
 router.patch('/:guildId/roles/:roleId', authHandler, asyncHandler(GuildController.updateRole));
 router.delete('/:guildId/chats/:chatId', authHandler, asyncHandler(GuildController.deleteGuildChat));

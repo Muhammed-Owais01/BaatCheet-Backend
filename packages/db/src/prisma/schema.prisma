@@ -29,6 +29,7 @@ model User {
   memberships ChatMembership[] @relation("UserMemberships")
   guilds    GuildMembership[] @relation("UserGuilds")
   ownedGuilds Guild[] @relation("GuildOwner")
+  bans      GuildBan[] @relation("UserBans")
 
   @@map("users")
 }
@@ -81,6 +82,7 @@ model Guild {
   chats     Chat[] @relation("GuildChats")
   roles     GuildRole[] @relation("GuildRoles")
   members   GuildMembership[] @relation("GuildMembers")
+  bans      GuildBan[] @relation("GuildBans")
 
   @@map("guilds")
 }
@@ -109,7 +111,7 @@ model GuildMembership {
   guildId String
   user    User      @relation("UserGuilds", fields: [userId], references: [userId], onDelete: Cascade)
   userId  String
-  role    GuildRole @relation("GuildRoleMembers", fields: [roleId], references: [roleId], onDelete: Restrict)
+  role    GuildRole @relation("GuildRoleMembers", fields: [roleId], references: [roleId], onDelete: Cascade)
   roleId  String
 
   @@id([guildId, userId, roleId])
@@ -157,4 +159,19 @@ model Message {
   @@map("messages")
   @@index([chatId, createdAt])
   @@index([chatId, senderId])
+}
+
+model GuildBan {
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guild   Guild  @relation("GuildBans", fields: [guildId], references: [guildId], onDelete: Cascade)
+  guildId String
+  user    User   @relation("UserBans", fields: [userId], references: [userId], onDelete: Cascade)
+  userId  String
+
+  @@id([guildId, userId])
+  @@index([userId])
+  @@index([guildId])
+  @@map("guildbans")
 }
