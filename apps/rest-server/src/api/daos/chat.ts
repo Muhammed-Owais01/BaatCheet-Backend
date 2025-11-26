@@ -43,12 +43,15 @@ class ChatDAO {
     
     // Add all guild members to the chat
     if (memberIds.length > 0) {
-      for (const memberId of memberIds) {
-        await client.$queryRaw`
-          INSERT INTO "public"."chatmemberships" ("chatId", "userId", "createdAt", "updatedAt")
-          VALUES (${chat.chatId}, ${memberId}, NOW(), NOW());
-        `;
-      }
+      // Bulk insert all members in a single query
+      const valuesClause = memberIds
+        .map((_, i) => `($1, $${i + 2}, NOW(), NOW())`)
+        .join(", ");
+      const params = [chat.chatId, ...memberIds];
+      await client.$executeRawUnsafe(
+        `INSERT INTO "public"."chatmemberships" ("chatId", "userId", "createdAt", "updatedAt") VALUES ${valuesClause};`,
+        ...params
+      );
     }
     
     return chat;
