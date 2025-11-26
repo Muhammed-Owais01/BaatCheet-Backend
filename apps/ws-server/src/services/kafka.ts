@@ -108,17 +108,23 @@ export async function startMessageConsumer() {
 
         try {
           const data = JSON.parse(message.value.toString());
+          const createdAt = data.createdAt ? new Date(data.createdAt) : new Date();
           const newMessage = {
             messageId: crypto.randomUUID(),
             content: data.message,
             chatId: message.key?.toString() ?? "",
             senderId: data.senderId,
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            createdAt: createdAt,
+            updatedAt: createdAt,
           };
 
           await prismaClient.message.create({
             data: newMessage,
+          });
+
+          await prismaClient.chat.update({
+            where: { chatId: newMessage.chatId },
+            data: { lastMessageAt: new Date() },
           });
 
           console.log(
