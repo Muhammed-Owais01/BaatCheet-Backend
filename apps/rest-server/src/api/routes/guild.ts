@@ -13,6 +13,7 @@ router.get('/:guildId/permissions', authHandler, asyncHandler(GuildController.ge
 
 router.get('/:guildId/roles/:memberId', authHandler, asyncHandler(GuildController.getRolesInGuildByMemberId));
 router.get('/:guildId/roles', authHandler, asyncHandler(GuildController.getRolesInGuild));
+router.get('/:guildId/roles/:roleId/permissions', authHandler, asyncHandler(GuildController.getRolePermissions));
 router.post('/:guildId/roles', authHandler, asyncHandler(GuildController.createRole));
 router.post('/:guildId/members/:memberId/roles/:roleId', authHandler, asyncHandler(GuildController.assignRoleToMember));
 
