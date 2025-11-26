@@ -40,7 +40,7 @@ class ChatController {
 
   static async getAllMessagesByChatId(req: Request, res: Response) {
     const userId = req.user!.userId;
-    const { chatId, guildId } = req.params;
+    const { chatId } = req.params;
 
     const messages = await ChatService.getAllMessagesByChatId(userId, chatId);
 
