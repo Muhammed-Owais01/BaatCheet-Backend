@@ -1,9 +1,6 @@
-import { PrismaClient, prismaClient, type GuildMembership } from "@baatcheet/db";
-import { randomUUID } from "crypto";
+import { GuildRole, prismaClient, type GuildMembership } from "@baatcheet/db";
 
-type TransactionClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
-
-export class GuildMembershipDAO {    
+export class GuildMembershipDAO {
     static async create(guildId: string, userId: string, roleId: string, tx?: TransactionClient): Promise<GuildMembership> {
         const client = tx ?? prismaClient;
         const [membership] = await client.$queryRaw<GuildMembership[]>`
@@ -16,13 +13,20 @@ export class GuildMembershipDAO {
 
     static async findAllGuildByUserId(userId: string): Promise<GuildMembership[]> {
         return prismaClient.$queryRaw<GuildMembership[]>`
-            SELECT * FROM "guildmemberships" WHERE "userId" = ${userId} ORDER BY "createdAt" DESC;
+            SELECT DISTINCT g."guildId", g."createdAt"
+            FROM "public"."guildmemberships" gm
+            JOIN "public"."guilds" g ON gm."guildId" = g."guildId"
+            WHERE gm."userId" = ${userId}
+            ORDER BY g."createdAt" DESC;
         `;
     }
 
     static async findAllMembersByGuildId(guildId: string): Promise<GuildMembership[]> {
         return prismaClient.$queryRaw<GuildMembership[]>`
-            SELECT * FROM "guildmemberships" WHERE "guildId" = ${guildId} ORDER BY "createdAt" DESC;
+            SELECT DISTINCT u.*
+            FROM "public"."guildmemberships" m
+            JOIN "public"."users" u ON m."userId" = u."userId"
+            WHERE m."guildId" = ${guildId} ORDER BY u."createdAt" DESC;
         `;
     }
 
@@ -32,6 +36,16 @@ export class GuildMembershipDAO {
         `;
         const roleIds = memberships.map(m => m.roleId);
         return roleIds.length > 0 ? roleIds : null;
+    }
+
+    static async findRolesByGuildIdAndMemberId(guildId: string, memberId: string): Promise<Array<Pick<GuildMembership, "guildId" | "userId" | "createdAt" | "updatedAt"> & Pick<GuildRole, "roleId" | "roleName" | "color">> | null> {
+        const memberships = await prismaClient.$queryRaw<Array<Pick<GuildMembership, "guildId" | "userId" | "createdAt" | "updatedAt"> & Pick<GuildRole, "roleId" | "roleName" | "color">>>`
+            SELECT DISTINCT gm."guildId", gm."userId", r."roleId", r."roleName", r."color", gm."createdAt", gm."updatedAt"
+            FROM "public"."guildmemberships" gm
+            JOIN "public"."guildroles" r ON gm."roleId" = r."roleId"
+            WHERE gm."guildId" = ${guildId} AND gm."userId" = ${memberId};
+        `;
+        return memberships.length > 0 ? memberships : null;
     }
 
     static async delete(guildId: string, userId: string, tx?: TransactionClient): Promise<void> {

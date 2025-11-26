@@ -1,5 +1,5 @@
-import { prismaClient } from "@baatcheet/db";
-import { Creation, TransactionClient } from "../types/utils";
+import { Prisma, prismaClient } from "@baatcheet/db";
+import { TransactionClient } from "../types/utils";
 
 class ChatDAO {
   static normalizeUserIds(userAId: string, userBId: string) {
@@ -20,10 +20,50 @@ class ChatDAO {
       WHERE c."type" = 'DIRECT'
         AND EXISTS (SELECT 1 FROM "public"."chatmemberships" cm WHERE cm."chatId" = c."chatId" AND cm."userId" = ${minId})
         AND EXISTS (SELECT 1 FROM "public"."chatmemberships" cm2 WHERE cm2."chatId" = c."chatId" AND cm2."userId" = ${maxId})
-        -- AND (SELECT COUNT(*) FROM "public"."chatmemberships" cm3 WHERE cm3."chatId" = c."chatId") = 2
       LIMIT 1;
     `;
     return chat ?? null;
+  }
+
+  static async findById(chatId: string, tx?: TransactionClient) {
+    const client = (tx || prismaClient) as TransactionClient;
+    const [chat] = await client.$queryRaw<any[]>`
+      SELECT * FROM "public"."chats" WHERE "chatId" = ${chatId} LIMIT 1;
+    `;
+    return chat ?? null;
+  }
+
+  static async deleteMemberFromAllGuildChats(guildId: string, userId: string, tx?: TransactionClient) {
+    const client = (tx || prismaClient) as TransactionClient;
+    await client.$queryRaw`
+      DELETE FROM "public"."chatmemberships"
+      WHERE "chatId" IN (SELECT "chatId" FROM "public"."chats" WHERE "guildId" = ${guildId})
+        AND "userId" = ${userId};
+    `;
+  }
+
+  static async createGuildChatWithMembers(guildId: string, chatName: string, memberIds: string[], tx?: TransactionClient) {
+    const client = (tx || prismaClient) as TransactionClient;
+    const [chat] = await client.$queryRaw<any[]>`
+      INSERT INTO "public"."chats" ("chatId", "guildId", "type", "name", "createdAt", "updatedAt")
+      VALUES (gen_random_uuid(), ${guildId}, 'GROUP', ${chatName}, NOW(), NOW())
+      RETURNING *;
+    `;
+    
+    // Add all guild members to the chat
+    if (memberIds.length > 0) {
+      // Bulk insert all members in a single query
+      const valuesClause = memberIds
+        .map((_, i) => `($1, $${i + 2}, NOW(), NOW())`)
+        .join(", ");
+      const params = [chat.chatId, ...memberIds];
+      await client.$executeRawUnsafe(
+        `INSERT INTO "public"."chatmemberships" ("chatId", "userId", "createdAt", "updatedAt") VALUES ${valuesClause};`,
+        ...params
+      );
+    }
+    
+    return chat;
   }
 
   /**
@@ -67,15 +107,25 @@ class ChatDAO {
     return result;
   }
 
-  static async getAllChatsByUserId(userId: string, tx?: TransactionClient) {
+  static async update(chatId: string, updates: { chatName?: string }, tx?: TransactionClient) {
     const client = (tx || prismaClient) as TransactionClient;
-    return client.$queryRaw<any[]>`
-      SELECT c.*
-      FROM "public"."chats" c
-      JOIN "public"."chatmemberships" cm ON cm."chatId" = c."chatId"
-      WHERE cm."userId" = ${userId}
-      ORDER BY c."lastMessageAt" DESC NULLS LAST, c."updatedAt" DESC;
+
+    // Whitelist columns that can be updated
+    const setFragments: Prisma.Sql[] = [];
+    if (updates.chatName !== undefined) {
+      setFragments.push(Prisma.sql`"name" = ${updates.chatName}`);
+    }
+
+    if (setFragments.length === 0) return null;
+
+    const [chat] = await client.$queryRaw<any[]>`
+      UPDATE "public"."chats"
+      SET ${Prisma.join(setFragments, ", ")}, "updatedAt" = NOW()
+      WHERE "chatId" = ${chatId}
+      RETURNING *;
     `;
+
+    return chat;
   }
 
   static async getAllDirectChatsByUserId(userId: string, tx?: TransactionClient) {
@@ -89,6 +139,16 @@ class ChatDAO {
         SELECT 1 FROM "public"."chatmemberships" cm2
         WHERE cm2."chatId" = c."chatId" AND cm2."userId" = ${userId}
       )
+      ORDER BY c."lastMessageAt" DESC NULLS LAST, c."updatedAt" DESC;
+    `;
+  }
+
+  static async getAllGuildChatsByGuildId(guildId: string, tx?: TransactionClient) {
+    const client = (tx || prismaClient) as TransactionClient;
+    return client.$queryRaw<any[]>`
+      SELECT c.*
+      FROM "public"."chats" c
+      WHERE c."guildId" = ${guildId}
       ORDER BY c."lastMessageAt" DESC NULLS LAST, c."updatedAt" DESC;
     `;
   }
@@ -122,6 +182,16 @@ class ChatDAO {
       LIMIT 1;
     `;
     return row ?? null;
+  }
+
+  static async delete(chatId: string, tx?: TransactionClient) {
+    const client = (tx || prismaClient) as TransactionClient;
+    await client.$queryRaw`
+      DELETE FROM "public"."chatmemberships" WHERE "chatId" = ${chatId};
+    `;
+    await client.$queryRaw`
+      DELETE FROM "public"."chats" WHERE "chatId" = ${chatId};
+    `;
   }
 }
 

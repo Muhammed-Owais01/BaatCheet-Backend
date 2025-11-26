@@ -35,7 +35,7 @@ class UserFriendDAO {
   static async getMutualFriendsByUserId(userId: string, tx?: TransactionClient) {
     const client = tx || prismaClient;
     return await client.$queryRaw<
-      Array<Pick<User, "userId" | "username" | "name"> & Pick<UserFriend, "createdAt">>
+      Array<Pick<User, "userId" | "username" | "name"> & Pick<UserFriend, "createdAt"> & { chatId: string }>
     >`--sql
       SELECT 
         CASE 
@@ -50,11 +50,19 @@ class UserFriendDAO {
           WHEN uf."userId" = ${userId} THEN u2."username"
           ELSE u1."username" 
         END as "username",
-        uf."createdAt"
+        uf."createdAt",
+        c."chatId"
       FROM "public"."userfriends" uf
       JOIN "public"."users" u1 ON uf."userId" = u1."userId"
       JOIN "public"."users" u2 ON uf."friendId" = u2."userId"
-      WHERE uf."userId" = ${userId} OR uf."friendId" = ${userId}
+      LEFT JOIN "public"."chatmemberships" cm1 ON cm1."userId" = ${userId}
+      LEFT JOIN "public"."chatmemberships" cm2 ON cm2."chatId" = cm1."chatId" 
+        AND cm2."userId" = CASE 
+          WHEN uf."userId" = ${userId} THEN uf."friendId"
+          ELSE uf."userId"
+        END
+      LEFT JOIN "public"."chats" c ON c."chatId" = cm1."chatId" AND c."type" = 'DIRECT'
+      WHERE (uf."userId" = ${userId} OR uf."friendId" = ${userId})
     `;
   }
 

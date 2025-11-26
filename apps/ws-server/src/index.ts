@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import SocketService from "./services/socket.js";
 import { ensureTopics, startDLQConsumer, startMessageConsumer } from "./services/kafka.js";
 import { fgaClient } from "@baatcheet/auth";
+import { checkToxicity } from "./services/toxicity.js";
 
 async function init() {
   // Initialize OpenFGA authorization model
@@ -31,17 +32,27 @@ async function init() {
       if (guildId) {
           const canSendMessage = await fgaClient.check({
           user: `user:${senderId}`,
-          relation: 'can_send_messages',
+          relation: 'can_message',
           object: `guild:${guildId}`,
         });
-        if (!canSendMessage) {
+        if (!canSendMessage.allowed) {
           return res.status(403).json({ success: false, message: 'User does not have permission to send messages in this guild' });
         }
       }
       
-      // Use the same Redis publisher as socket service
-      await socketService.publishMessage(chatId, senderId, message);
-      
+      const timestamp = new Date();
+      const toxicity = await checkToxicity(message);
+      if (toxicity.toxic) {
+        // Add a `flagged` property instead of blocking
+        await socketService.publishMessage(chatId, senderId, JSON.stringify({
+          text: message,
+          flagged: true,
+          toxicityScore: toxicity.score
+        }), timestamp);
+      } else {
+        await socketService.publishMessage(chatId, senderId, message, timestamp);
+      }
+
       res.status(200).json({ success: true, message: 'Message sent successfully' });
     } catch (error: unknown) {
       console.error('Error sending message:', error);
