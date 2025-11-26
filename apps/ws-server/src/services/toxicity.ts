@@ -7,11 +7,14 @@ interface ToxicityResult {
 
 export async function checkToxicity(message: string): Promise<ToxicityResult> {
   try {
-    const response = await fetch("http://toxicity-api:8000/predict", {
+    const response = await fetch(`http://localhost:8000/predict`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: message }),
     });
+
+    console.log('Toxicity check request sent for response analysis', response);
+    console.log('Toxicity API response status:', response.status);
 
     if (!response.ok) {
       throw new Error(`Toxicity API error: ${response.statusText}`);
