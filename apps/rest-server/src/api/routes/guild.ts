@@ -35,7 +35,7 @@ router.patch('/:guildId/roles/:roleId', authHandler, asyncHandler(GuildControlle
 router.delete('/:guildId/chats/:chatId', authHandler, asyncHandler(GuildController.deleteGuildChat));
 router.delete('/:guildId/members/:memberId/roles/:roleId', authHandler, asyncHandler(GuildController.removeRoleFromMember));
 router.delete('/:guildId/members/:memberId', authHandler, asyncHandler(GuildController.removeMemberFromGuild));
-router.delete('/:guildId/roles', authHandler, asyncHandler(GuildController.deleteRole));
+router.delete('/:guildId/roles/:roleId', authHandler, asyncHandler(GuildController.deleteRole));
 router.delete('/:guildId', authHandler, asyncHandler(GuildController.deleteGuild));
 
 export default router;
