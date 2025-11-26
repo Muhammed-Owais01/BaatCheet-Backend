@@ -7,4 +7,4 @@ export const guildPermissions = [
   'can_manage_permissions',
   'can_manage_roles',
   'can_message'
-]
+] as const;

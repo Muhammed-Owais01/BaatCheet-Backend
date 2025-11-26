@@ -21,9 +21,9 @@ class GuildController {
       });
     } catch (err: any) {
       if (err?.message?.includes('already exists')) {
-        return new RequestError(ExceptionType.CONFLICT, 'Guild with this name already exists');
+        throw new RequestError(ExceptionType.CONFLICT, 'Guild with this name already exists');
       }
-      return new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to create guild');
+      throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to create guild');
     }
   }
 
