@@ -26,6 +26,7 @@ router.patch('/:guildId/ownership/:newOwnerId', authHandler, asyncHandler(GuildC
 router.post('/:guildId/members/:memberId', authHandler, asyncHandler(GuildController.addMemberToGuild));
 
 router.patch('/:guildId/chats/:chatId', authHandler, asyncHandler(GuildController.updateGuildChat));
+router.patch('/:guildId/roles/:roleId', authHandler, asyncHandler(GuildController.updateRole));
 router.delete('/:guildId/chats/:chatId', authHandler, asyncHandler(GuildController.deleteGuildChat));
 router.delete('/:guildId/members/:memberId/roles/:roleId', authHandler, asyncHandler(GuildController.removeRoleFromMember));
 router.delete('/:guildId/members/:memberId', authHandler, asyncHandler(GuildController.removeMemberFromGuild));

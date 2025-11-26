@@ -72,6 +72,28 @@ export class GuildRolesDAO {
         `;
     }
 
+    static async update(roleId: string, data: Partial<GuildRole>, tx?: TransactionClient): Promise<GuildRole> {
+        const client = tx ?? prismaClient;
+        const fieldsToUpdate: Prisma.Sql[] = [];
+
+        if (data.roleName !== undefined) {
+            fieldsToUpdate.push(Prisma.sql`"roleName" = ${data.roleName}`);
+        }
+        if (data.color !== undefined) {
+            fieldsToUpdate.push(Prisma.sql`"color" = ${data.color}`);
+        }
+
+        const query: Prisma.Sql = Prisma.sql`
+            UPDATE "guildroles"
+            SET ${Prisma.join(fieldsToUpdate, ", ")}, "updatedAt" = NOW()
+            WHERE "roleId" = ${roleId}
+            RETURNING *;
+        `;
+
+        const [updatedRole] = await client.$queryRaw<GuildRole[]>(query);
+        return updatedRole;
+    }
+
     static async deleteByGuild(guildId: string, tx?: TransactionClient): Promise<void> {
         const client = tx ?? prismaClient;
         await client.$queryRaw`

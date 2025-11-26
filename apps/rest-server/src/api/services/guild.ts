@@ -570,6 +570,55 @@ export class GuildService {
         }
     }
 
+    static async updateRole(guildId: string, roleId: string, userId: string, data: Partial<{ roleName: string; permissions: string[]; color: string }>) {
+        const canUpdateRole = await fgaClient.check({
+            user: `user:${userId}`,
+            relation: "can_manage_roles",
+            object: `guild:${guildId}`
+        });
+        if (!canUpdateRole.allowed) {
+            throw new RequestError(ExceptionType.FORBIDDEN, 'You do not have permission to update roles in this guild');
+        }
+
+        const role = await GuildRolesDAO.findById(roleId);
+        if (!role) {
+            throw new RequestError(ExceptionType.NOT_FOUND, 'Role not found in the guild');
+        }
+
+        return await prismaClient.$transaction(async (tx) => {
+            try {
+                const updatedRole = await GuildRolesDAO.update(roleId, data, tx);
+                if (data.permissions) {
+                    const { tuples: roleTuples } = await fgaClient.read({
+                        object: `role:${roleId}`
+                    });
+
+                    if (roleTuples?.length) {
+                        await fgaClient.write({
+                            deletes: roleTuples.map(tuple => ({
+                                object: tuple.key.object,
+                                relation: tuple.key.relation,
+                                user: tuple.key.user
+                            }))
+                        });
+                    }
+
+                    await fgaClient.write({
+                        writes: data.permissions.map(permission => ({
+                            user: `role:${role.roleId}#has_role`,
+                            relation: permission,
+                            object: `guild:${guildId}`
+                        }))
+                    });
+                }
+                return updatedRole;
+            } catch (error) {
+                console.error('Error updating role:', error);
+                throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to update role');
+            }
+        });
+    }
+
     static async deleteRole(guildId: string, roleName: string, userId: string) {
         const canDeleteRole = await fgaClient.check({
             user: `user:${userId}`,

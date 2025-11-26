@@ -244,6 +244,20 @@ class GuildController {
     }
   }
 
+  static async updateRole(req: Request, res: Response) {
+    const { guildId, roleId } = req.params;
+    const { roleName, permissions, color } = req.body;
+    const userId = req.user!.userId;
+
+    const updatedRole = await GuildService.updateRole(guildId, roleId, userId, { roleName, permissions, color });
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Role updated successfully',
+      role: updatedRole
+    });
+  }
+
   static async deleteGuildChat(req: Request, res: Response) {
     const { guildId, chatId } = req.params;
     const userId = req.user!.userId;
