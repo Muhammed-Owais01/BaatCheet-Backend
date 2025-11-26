@@ -8,7 +8,7 @@ const router = Router();
 router.post('/', authHandler, asyncHandler(GuildController.createGuild));
 router.post('/:guildId/chat', authHandler, asyncHandler(GuildController.createGuildChat));
 router.post('/:guildId/join', authHandler, asyncHandler(GuildController.joinGuild));
-router.delete('/:guildId/leave', authHandler, asyncHandler(GuildController.leaveGuild));
+router.post('/:guildId/leave', authHandler, asyncHandler(GuildController.leaveGuild));
 router.get('/:guildId/permissions', authHandler, asyncHandler(GuildController.getPermissionsInGuild));
 
 router.get('/:guildId/roles/:memberId', authHandler, asyncHandler(GuildController.getRolesInGuildByMemberId));
