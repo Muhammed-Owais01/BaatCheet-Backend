@@ -102,7 +102,7 @@ class ChatDAO {
     const client = (tx || prismaClient) as TransactionClient;
 
     // Whitelist columns that can be updated
-    const setFragments: any[] = [];
+    const setFragments: Prisma.Sql[] = [];
     if (updates.chatName !== undefined) {
       setFragments.push(Prisma.sql`"name" = ${updates.chatName}`);
     }
