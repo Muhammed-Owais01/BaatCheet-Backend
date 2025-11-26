@@ -38,9 +38,9 @@ export class GuildMembershipDAO {
         return roleIds.length > 0 ? roleIds : null;
     }
 
-    static async findRolesByGuildIdAndMemberId(guildId: string, memberId: string): Promise<GuildMembership[] | null> {
-        const memberships = await prismaClient.$queryRaw<GuildMembership[]>`
-            SELECT DISTINCT gm.*, r.*
+    static async findRolesByGuildIdAndMemberId(guildId: string, memberId: string): Promise<Array<Pick<GuildMembership, "guildId" | "userId" | "createdAt" | "updatedAt"> & Pick<GuildRole, "roleId" | "roleName" | "color">> | null> {
+        const memberships = await prismaClient.$queryRaw<Array<Pick<GuildMembership, "guildId" | "userId" | "createdAt" | "updatedAt"> & Pick<GuildRole, "roleId" | "roleName" | "color">>>`
+            SELECT DISTINCT gm."guildId", gm."userId", r."roleId", r."roleName", r."color", gm."createdAt", gm."updatedAt"
             FROM "public"."guildmemberships" gm
             JOIN "public"."guildroles" r ON gm."roleId" = r."roleId"
             WHERE gm."guildId" = ${guildId} AND gm."userId" = ${memberId};
