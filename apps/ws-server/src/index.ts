@@ -21,7 +21,7 @@ async function init() {
 
   const socketService = new SocketService();
   const httpServer = http.createServer(app);
-  const PORT = process.env.PORT ? process.env.PORT : 8000;
+  const PORT = process.env.PORT ? process.env.PORT : 9001;
 
   // HTTP endpoint for sending messages
   app.post('/api/messages', async (req, res) => {
@@ -40,18 +40,21 @@ async function init() {
         }
       }
       
-      const timestamp = new Date();
+      // Check toxicity before sending
       const toxicity = await checkToxicity(message);
+      console.log('Toxicity check message:', message);
+      console.log('Toxicity check result:', toxicity);
       if (toxicity.toxic) {
-        // Add a `flagged` property instead of blocking
-        await socketService.publishMessage(chatId, senderId, JSON.stringify({
-          text: message,
-          flagged: true,
-          toxicityScore: toxicity.score
-        }), timestamp);
-      } else {
-        await socketService.publishMessage(chatId, senderId, message, timestamp);
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Message contains toxic content and cannot be sent',
+          toxicityScore: toxicity.score,
+          error: 'TOXIC_CONTENT'
+        });
       }
+
+      const timestamp = new Date();
+      await socketService.publishMessage(chatId, senderId, message, timestamp);
 
       res.status(200).json({ success: true, message: 'Message sent successfully' });
     } catch (error: unknown) {

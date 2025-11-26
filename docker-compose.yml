@@ -110,7 +110,7 @@ services:
       context: ./packages/classifier
       dockerfile: Dockerfile
     ports:
-      - "9001:9001"
+      - "8000:8000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
