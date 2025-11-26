@@ -27,6 +27,19 @@ class GuildController {
     }
   }
 
+  static async getRolePermissions(req: Request, res: Response) {
+    const { guildId, roleId } = req.params;
+    const userId = req.user!.userId;
+
+    const permissions = await GuildService.getRolePermissions(guildId, roleId, userId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Role fetched successfully',
+      permissions
+    });
+  }
+
   static async createGuildChat(req: Request, res: Response) {
     const { guildId } = req.params;
     const { chatName } = req.body;
@@ -250,7 +263,7 @@ class GuildController {
     const userId = req.user!.userId;
 
     const updatedRole = await GuildService.updateRole(guildId, roleId, userId, { roleName, permissions, color });
-    
+
     return res.status(200).json({
       success: true,
       message: 'Role updated successfully',
@@ -294,12 +307,48 @@ class GuildController {
     });
   }
 
-  static async deleteRole(req: Request, res: Response) {
+  static async banUserFromGuild(req: Request, res: Response) {
+    const { guildId, userId: targetUserId } = req.params;
+    const requesterId = req.user!.userId;
+
+    await GuildService.banUserFromGuild(guildId, requesterId, targetUserId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'User banned from guild successfully'
+    });
+  }
+
+  static async unbanUserFromGuild(req: Request, res: Response) {
+    const { guildId, userId: targetUserId } = req.params;
+    const requesterId = req.user!.userId;
+
+    await GuildService.unbanUserFromGuild(guildId, requesterId, targetUserId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'User unbanned from guild successfully'
+    });
+  }
+
+  static async getAllBansByGuildId(req: Request, res: Response) {
     const { guildId } = req.params;
-    const { roleName } = req.body;
+    const requesterId = req.user!.userId;
+
+    const bans = await GuildService.getAllBansByGuildId(guildId, requesterId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'User bans fetched successfully',
+      bans
+    });
+  }
+
+  static async deleteRole(req: Request, res: Response) {
+    const { guildId, roleId } = req.params;
     const userId = req.user!.userId;
 
-    await GuildService.deleteRole(guildId, roleName, userId);
+    await GuildService.deleteRole(guildId, roleId, userId);
 
     return res.status(200).json({
       success: true,
