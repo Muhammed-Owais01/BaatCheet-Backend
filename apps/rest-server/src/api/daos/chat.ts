@@ -33,6 +33,15 @@ class ChatDAO {
     return chat ?? null;
   }
 
+  static async deleteMemberFromAllGuildChats(guildId: string, userId: string, tx?: TransactionClient) {
+    const client = (tx || prismaClient) as TransactionClient;
+    await client.$queryRaw`
+      DELETE FROM "public"."chatmemberships"
+      WHERE "chatId" IN (SELECT "chatId" FROM "public"."chats" WHERE "guildId" = ${guildId})
+        AND "userId" = ${userId};
+    `;
+  }
+
   static async createGuildChatWithMembers(guildId: string, chatName: string, memberIds: string[], tx?: TransactionClient) {
     const client = (tx || prismaClient) as TransactionClient;
     const [chat] = await client.$queryRaw<any[]>`
