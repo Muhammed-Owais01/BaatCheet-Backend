@@ -1,4 +1,4 @@
-import { User, type UserFriend, prismaClient } from "@baatcheet/db";
+import { Prisma, User, type UserFriend, prismaClient } from "@baatcheet/db";
 import { Creation, TransactionClient } from "../types/utils";
 
 class UserFriendDAO {
@@ -34,36 +34,73 @@ class UserFriendDAO {
 
   static async getMutualFriendsByUserId(userId: string, tx?: TransactionClient) {
     const client = tx || prismaClient;
-    return await client.$queryRaw<
-      Array<Pick<User, "userId" | "username" | "name"> & Pick<UserFriend, "createdAt"> & { chatId: string }>
+    
+    // get all friendships for this user
+    const friendships = await client.$queryRaw<
+      Array<Pick<UserFriend, "userId" | "friendId" | "createdAt">>
+    >`
+      SELECT "userId", "friendId", "createdAt"
+      FROM "public"."userfriends"
+      WHERE "userId" = ${userId} OR "friendId" = ${userId}
+    `;
+
+    // extract friend IDs (the other user in each friendship)
+    const friendIds = friendships.map((f: any) => 
+      f.userId === userId ? f.friendId : f.userId
+    );
+
+    if (friendIds.length === 0) {
+      return [];
+    }
+
+    // get user details for all friends
+    const friends = await client.$queryRaw<
+      Array<Pick<User, "userId" | "username" | "name">>
+    >`--sql
+      SELECT "userId", "username", "name"
+      FROM "public"."users"
+      WHERE "userId" IN (${Prisma.join(friendIds)})
+    `;
+
+    // get direct chats where both the user and each friend are members
+    const directChats = await client.$queryRaw<
+      Array<{ chatId: string; memberUserIds: string[] }>
     >`--sql
       SELECT 
-        CASE 
-          WHEN uf."userId" = ${userId} THEN u2."userId"
-          ELSE u1."userId" 
-        END as "userId",
-        CASE 
-          WHEN uf."userId" = ${userId} THEN u2."name"
-          ELSE u1."name" 
-        END as "name",
-        CASE 
-          WHEN uf."userId" = ${userId} THEN u2."username"
-          ELSE u1."username" 
-        END as "username",
-        uf."createdAt",
-        c."chatId"
-      FROM "public"."userfriends" uf
-      JOIN "public"."users" u1 ON uf."userId" = u1."userId"
-      JOIN "public"."users" u2 ON uf."friendId" = u2."userId"
-      LEFT JOIN "public"."chatmemberships" cm1 ON cm1."userId" = ${userId}
-      LEFT JOIN "public"."chatmemberships" cm2 ON cm2."chatId" = cm1."chatId" 
-        AND cm2."userId" = CASE 
-          WHEN uf."userId" = ${userId} THEN uf."friendId"
-          ELSE uf."userId"
-        END
-      LEFT JOIN "public"."chats" c ON c."chatId" = cm1."chatId" AND c."type" = 'DIRECT'
-      WHERE (uf."userId" = ${userId} OR uf."friendId" = ${userId})
+        c."chatId",
+        ARRAY_AGG(cm."userId") as "memberUserIds"
+      FROM "public"."chats" c
+      JOIN "public"."chatmemberships" cm ON c."chatId" = cm."chatId"
+      WHERE c."type" = 'DIRECT'
+        AND cm."userId" = ANY(ARRAY[${Prisma.join([userId, ...friendIds])}])
+      GROUP BY c."chatId"
+      HAVING COUNT(DISTINCT cm."userId") = 2
     `;
+
+    // create a map of friendId then chatId for quick lookup
+    const chatMap = new Map<string, string>();
+    for (const chat of directChats) {
+      const otherUserId = chat.memberUserIds.find((id: any) => id !== userId);
+      if (otherUserId) {
+        chatMap.set(otherUserId, chat.chatId);
+      }
+    }
+
+    // create a map of friendId then createdAt
+    const createdAtMap = new Map<string, Date>();
+    for (const friendship of friendships) {
+      const friendId = friendship.userId === userId ? friendship.friendId : friendship.userId;
+      createdAtMap.set(friendId, friendship.createdAt);
+    }
+
+    // combine all data
+    return friends.map((friend: any) => ({
+      userId: friend.userId,
+      username: friend.username,
+      name: friend.name,
+      createdAt: createdAtMap.get(friend.userId)!,
+      chatId: chatMap.get(friend.userId) ?? null
+    }));
   }
 
   static async delete({ userId, friendId }: Pick<UserFriend, "userId" | "friendId">, tx?: TransactionClient) {
