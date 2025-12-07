@@ -9,7 +9,6 @@ import ChatDAO from "../daos/chat.js";
 import { guildPermissions } from "../constants/guild-permissions.js";
 import GuildBanDAO from "../daos/guild-ban.js";
 import { RoleAuthClient } from "./role-auth.js";
-import { permission } from "process";
 
 export class GuildService {
     static async createGuild(guildName: string, ownerId: string) {
