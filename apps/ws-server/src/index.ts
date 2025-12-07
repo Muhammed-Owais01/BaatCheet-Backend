@@ -44,7 +44,7 @@ async function init() {
       const toxicity = await checkToxicity(message);
       console.log('Toxicity check message:', message);
       console.log('Toxicity check result:', toxicity);
-      if (toxicity.toxic) {
+      if (toxicity.toxic && toxicity.score >= 0.85) {
         return res.status(400).json({ 
           success: false, 
           message: 'Message contains toxic content and cannot be sent',

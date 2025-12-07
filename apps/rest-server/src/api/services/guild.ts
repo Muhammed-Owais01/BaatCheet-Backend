@@ -8,6 +8,7 @@ import { fgaClient } from "@baatcheet/auth";
 import ChatDAO from "../daos/chat.js";
 import { guildPermissions } from "../constants/guild-permissions.js";
 import GuildBanDAO from "../daos/guild-ban.js";
+import { RoleAuthClient } from "./role-auth.js";
 
 export class GuildService {
     static async createGuild(guildName: string, ownerId: string) {
@@ -23,18 +24,22 @@ export class GuildService {
                 const ownerRole = await GuildRolesDAO.create(newGuild.guildId, 'Owner', 'black', tx);
                 await GuildMembershipDAO.create(newGuild.guildId, ownerId, role.roleId, tx);
                 await GuildMembershipDAO.create(newGuild.guildId, ownerId, ownerRole.roleId, tx);
+                
+                await RoleAuthClient.createGuild(newGuild.guildId, newGuild.ownerId);
+                await RoleAuthClient.createRole(newGuild.guildId, role.roleId, ["can_message"]);
+                await RoleAuthClient.assignRole(newGuild.guildId, ownerId, role.roleId);
 
-                await fgaClient.write({
-                    writes: [{
-                        user: `user:${ownerId}`,
-                        relation: "owner",
-                        object: `guild:${newGuild.guildId}`,
-                    }, {
-                        user: `user:${ownerId}`,
-                        relation: "member",
-                        object: `guild:${newGuild.guildId}`,
-                    }]
-                });
+                // await fgaClient.write({
+                //     writes: [{
+                //         user: `user:${ownerId}`,
+                //         relation: "owner",
+                //         object: `guild:${newGuild.guildId}`,
+                //     }, {
+                //         user: `user:${ownerId}`,
+                //         relation: "member",
+                //         object: `guild:${newGuild.guildId}`,
+                //     }]
+                // });
 
                 return newGuild
             } catch (error) {
@@ -47,22 +52,24 @@ export class GuildService {
     private static async deleteUserFromGuild(memberId: string, guildId: string, roleIds: string[], tx?: TransactionClient): Promise<void> {
         await GuildMembershipDAO.delete(guildId, memberId, tx);
         await ChatDAO.deleteMemberFromAllGuildChats(guildId, memberId, tx);
-        const memberRole = await GuildRolesDAO.getRoleIdByGuildIdAndRoleName(guildId, 'Member');
+        // const memberRole = await GuildRolesDAO.getRoleIdByGuildIdAndRoleName(guildId, 'Member');
 
-        await fgaClient.write({
-            deletes: [
-                {
-                    user: `user:${memberId}`,
-                    relation: "member",
-                    object: `guild:${guildId}`
-                },
-                ...roleIds.filter(roleId => roleId !== memberRole).map(roleId => ({
-                    user: `user:${memberId}`,
-                    relation: "has_role",
-                    object: `role:${roleId}`
-                }))
-            ]
-        });
+        await RoleAuthClient.removeMember(guildId, memberId, roleIds);
+
+        // await fgaClient.write({
+        //     deletes: [
+        //         {
+        //             user: `user:${memberId}`,
+        //             relation: "member",
+        //             object: `guild:${guildId}`
+        //         },
+        //         ...roleIds.filter(roleId => roleId !== memberRole).map(roleId => ({
+        //             user: `user:${memberId}`,
+        //             relation: "has_role",
+        //             object: `role:${roleId}`
+        //         }))
+        //     ]
+        // });
     }
 
     static async leaveGuild(guildId: string, memberId: string) {
@@ -101,11 +108,13 @@ export class GuildService {
             throw new RequestError(ExceptionType.FORBIDDEN, 'You are not a member of this guild');
         }
 
-        const canManageChannels = await fgaClient.check({
-            user: `user:${userId}`,
-            relation: "can_manage_channels",
-            object: `guild:${guildId}`,
-        });
+        const canManageChannels = await RoleAuthClient.checkPermission(userId, guildId, "can_manage_channels");
+
+        // const canManageChannels = await fgaClient.check({
+        //     user: `user:${userId}`,
+        //     relation: "can_manage_channels",
+        //     object: `guild:${guildId}`,
+        // });
 
         if (!canManageChannels.allowed) {
             throw new RequestError(ExceptionType.FORBIDDEN, 'You do not have permission to create channels in this guild');
@@ -155,15 +164,16 @@ export class GuildService {
                 for (const chat of guildChats) {
                     await ChatDAO.addMember(chat.chatId, memberId, tx);
                 }
-                console.log(`Added user ${memberId} to ${guildChats.length} guild chats`);
+                
+                await RoleAuthClient.addMember(guildId, memberId, roleId);
 
-                await fgaClient.write({
-                    writes: [{
-                        user: `user:${memberId}`,
-                        relation: "member",
-                        object: `guild:${guildId}`
-                    }]
-                });
+                // await fgaClient.write({
+                //     writes: [{
+                //         user: `user:${memberId}`,
+                //         relation: "member",
+                //         object: `guild:${guildId}`
+                //     }]
+                // });
 
             } catch (error) {
                 console.error('Error adding member to guild:', error);
@@ -180,12 +190,14 @@ export class GuildService {
             throw new RequestError(ExceptionType.FORBIDDEN, 'You are not a member of this guild');
         }
 
+        const isOwner = await RoleAuthClient.checkPermission(memberId, guildId, "owner");
+
         // Check if the member is the owner
-        const isOwner = await fgaClient.check({
-            user: `user:${memberId}`,
-            relation: 'owner',
-            object: `guild:${guildId}`,
-        });
+        // const isOwner = await fgaClient.check({
+        //     user: `user:${memberId}`,
+        //     relation: 'owner',
+        //     object: `guild:${guildId}`,
+        // });
 
         if (isOwner.allowed) {
             return guildPermissions.map(permission => ({
@@ -200,14 +212,14 @@ export class GuildService {
             throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'No roles exist for this member in this guild');
         }
 
-        console.log(`Member ${memberId} has roles:`, memberRoles);
         const permissionsResult = await Promise.all(
             guildPermissions.map(async (permission) => {
-                const checkResult = await fgaClient.check({
-                    user: `user:${memberId}`,
-                    relation: permission,
-                    object: `guild:${guildId}`,
-                });
+                const checkResult = await RoleAuthClient.checkPermission(memberId, guildId, permission);
+                // const checkResult = await fgaClient.check({
+                //     user: `user:${memberId}`,
+                //     relation: permission,
+                //     object: `guild:${guildId}`,
+                // });
 
                 if (!checkResult.allowed) {
                     return null;
@@ -217,12 +229,12 @@ export class GuildService {
                 let grantingRole = null;
 
                 for (const roleEntry of memberRoles) {
-                    const roleCheck = await fgaClient.check({
-                        user: `role:${roleEntry.roleId}#has_role`,
-                        relation: permission,
-                        object: `guild:${guildId}`,
-                    });
-                    console.log(`Checking if role ${roleEntry.roleName} grants permission ${permission}:`, roleCheck);
+                    const roleCheck = await RoleAuthClient.checkRolePermissions(guildId, roleEntry.roleId, permission);
+                    // const roleCheck = await fgaClient.check({
+                    //     user: `role:${roleEntry.roleId}#has_role`,
+                    //     relation: permission,
+                    //     object: `guild:${guildId}`,
+                    // });
                     if (roleCheck.allowed) {
                         grantingRole = {
                             roleId: roleEntry.roleId,
@@ -294,11 +306,12 @@ export class GuildService {
     }
 
     static async createRole(guildId: string, roleName: string, userId: string, permissions: string[], color?: string) {
-        const canCreateRole = await fgaClient.check({
-            user: `user:${userId}`,
-            relation: "can_manage_roles",
-            object: `guild:${guildId}`
-        });
+        const canCreateRole = await RoleAuthClient.checkPermission(userId, guildId, "can_manage_roles");
+        // const canCreateRole = await fgaClient.check({
+        //     user: `user:${userId}`,
+        //     relation: "can_manage_roles",
+        //     object: `guild:${guildId}`
+        // });
         if (!canCreateRole.allowed) {
             throw new RequestError(ExceptionType.FORBIDDEN, 'You do not have permission to create roles in this guild');
         }
@@ -312,21 +325,23 @@ export class GuildService {
             try {
                 const role = await GuildRolesDAO.create(guildId, roleName, color, tx);
 
-                await fgaClient.write({
-                    writes: [{
-                        user: `guild:${guildId}`,
-                        relation: "parent",
-                        object: `role:${role.roleId}`
-                    }]
-                });
+                await RoleAuthClient.createRole(guildId, role.roleId, permissions);
 
-                await fgaClient.write({
-                    writes: permissions.map(permission => ({
-                        user: `role:${role.roleId}#has_role`,
-                        relation: permission,
-                        object: `guild:${guildId}`
-                    }))
-                })
+                // await fgaClient.write({
+                //     writes: [{
+                //         user: `guild:${guildId}`,
+                //         relation: "parent",
+                //         object: `role:${role.roleId}`
+                //     }]
+                // });
+
+                // await fgaClient.write({
+                //     writes: permissions.map(permission => ({
+                //         user: `role:${role.roleId}#has_role`,
+                //         relation: permission,
+                //         object: `guild:${guildId}`
+                //     }))
+                // })
 
                 return role;
             } catch (error) {
@@ -350,11 +365,12 @@ export class GuildService {
         // Check each permission to see if this role has it
         const permissions: string[] = [];
         await Promise.all(guildPermissions.map(async (permission) => {
-            const checkResult = await fgaClient.check({
-                user: `role:${roleId}#has_role`,
-                relation: permission,
-                object: `guild:${guildId}`,
-            });
+            const checkResult = await RoleAuthClient.checkRolePermissions(guildId, roleId, permission);
+            // const checkResult = await fgaClient.check({
+            //     user: `role:${roleId}#has_role`,
+            //     relation: permission,
+            //     object: `guild:${guildId}`,
+            // });
 
             if (checkResult.allowed) {
                 permissions.push(permission);
@@ -365,11 +381,12 @@ export class GuildService {
     }
 
     static async assignRoleToMember(guildId: string, roleId: string, userId: string, memberId: string) {
-        const canAssignRole = await fgaClient.check({
-            user: `user:${userId}`,
-            relation: "can_manage_roles",
-            object: `guild:${guildId}`
-        });
+        const canAssignRole = await RoleAuthClient.checkPermission(userId, guildId, "can_manage_roles");
+        // const canAssignRole = await fgaClient.check({
+        //     user: `user:${userId}`,
+        //     relation: "can_manage_roles",
+        //     object: `guild:${guildId}`
+        // });
         if (!canAssignRole.allowed) {
             throw new RequestError(ExceptionType.FORBIDDEN, 'You do not have permission to assign roles in this guild');
         }
@@ -388,13 +405,14 @@ export class GuildService {
             try {
                 const membership = await GuildMembershipDAO.create(guildId, memberId, roleId, tx);
 
-                await fgaClient.write({
-                    writes: [{
-                        user: `user:${memberId}`,
-                        relation: "has_role",
-                        object: `role:${roleId}`
-                    }]
-                });
+                await RoleAuthClient.assignRole(guildId, memberId, roleId);
+                // await fgaClient.write({
+                //     writes: [{
+                //         user: `user:${memberId}`,
+                //         relation: "has_role",
+                //         object: `role:${roleId}`
+                //     }]
+                // });
 
                 return membership;
             } catch (error) {
@@ -406,11 +424,12 @@ export class GuildService {
     }
 
     static async removeRoleFromMember(guildId: string, roleId: string, userId: string, memberId: string) {
-        const canRemoveRole = await fgaClient.check({
-            user: `user:${userId}`,
-            relation: "can_manage_roles",
-            object: `guild:${guildId}`
-        });
+        const canRemoveRole = await RoleAuthClient.checkPermission(userId, guildId, "can_manage_roles");
+        // const canRemoveRole = await fgaClient.check({
+        //     user: `user:${userId}`,
+        //     relation: "can_manage_roles",
+        //     object: `guild:${guildId}`
+        // });
 
         if (!canRemoveRole.allowed) {
             throw new RequestError(ExceptionType.FORBIDDEN, 'You do not have permission to remove roles in this guild');
@@ -424,13 +443,15 @@ export class GuildService {
         return await prismaClient.$transaction(async (tx) => {
             try {
                 await GuildMembershipDAO.deleteRoleFromMember(guildId, memberId, roleId, tx);
-                await fgaClient.write({
-                    deletes: [{
-                        user: `user:${memberId}`,
-                        relation: "has_role",
-                        object: `role:${roleId}`
-                    }]
-                });
+                
+                await RoleAuthClient.removeRoleFromMember(guildId, memberId, roleId);
+                // await fgaClient.write({
+                //     deletes: [{
+                //         user: `user:${memberId}`,
+                //         relation: "has_role",
+                //         object: `role:${roleId}`
+                //     }]
+                // });
             }
             catch (error) {
                 console.error('Error removing role from member:', error);
@@ -449,11 +470,12 @@ export class GuildService {
     }
 
     static async updateGuildChat(guildId: string, chatId: string, chatName: string, userId: string) {
-        const canManageChannels = await fgaClient.check({
-            user: `user:${userId}`,
-            relation: "can_manage_channels",
-            object: `guild:${guildId}`
-        });
+        const canManageChannels = await RoleAuthClient.checkPermission(userId, guildId, "can_manage_channels");
+        // const canManageChannels = await fgaClient.check({
+        //     user: `user:${userId}`,
+        //     relation: "can_manage_channels",
+        //     object: `guild:${guildId}`
+        // });
 
         if (!canManageChannels.allowed) {
             throw new RequestError(ExceptionType.FORBIDDEN, 'You do not have permission to update channels in this guild');
@@ -470,11 +492,12 @@ export class GuildService {
     }
 
     static async addMemberToGuild(guildId: string, userId: string, memberId: string) {
-        const canAddMember = await fgaClient.check({
-            user: `user:${userId}`,
-            relation: "can_add_members",
-            object: `guild:${guildId}`
-        });
+        const canAddMember = await RoleAuthClient.checkPermission(userId, guildId, "can_add_members");
+        // const canAddMember = await fgaClient.check({
+        //     user: `user:${userId}`,
+        //     relation: "can_add_members",
+        //     object: `guild:${guildId}`
+        // });
         if (!canAddMember.allowed) {
             throw new RequestError(ExceptionType.FORBIDDEN, 'You do not have permission to add members to this guild');
         }
@@ -493,13 +516,14 @@ export class GuildService {
             try {
                 await GuildMembershipDAO.create(guildId, memberId, roleId, tx);
 
-                await fgaClient.write({
-                    writes: [{
-                        user: `user:${memberId}`,
-                        relation: "member",
-                        object: `guild:${guildId}`
-                    }]
-                });
+                await RoleAuthClient.addMember(guildId, memberId, roleId);
+                // await fgaClient.write({
+                //     writes: [{
+                //         user: `user:${memberId}`,
+                //         relation: "member",
+                //         object: `guild:${guildId}`
+                //     }]
+                // });
 
             } catch (error) {
                 console.error('Error adding member to guild:', error);
@@ -509,11 +533,12 @@ export class GuildService {
     }
 
     static async deleteGuildChat(guildId: string, chatId: string, userId: string) {
-        const canDeleteChat = await fgaClient.check({
-            user: `user:${userId}`,
-            relation: "can_manage_channels",
-            object: `guild:${guildId}`
-        });
+        const canDeleteChat = await RoleAuthClient.checkPermission(userId, guildId, "can_manage_channels");
+        // const canDeleteChat = await fgaClient.check({
+        //     user: `user:${userId}`,
+        //     relation: "can_manage_channels",
+        //     object: `guild:${guildId}`
+        // });
 
         if (!canDeleteChat.allowed) {
             throw new RequestError(ExceptionType.FORBIDDEN, 'You do not have permission to delete channels in this guild');
@@ -534,11 +559,12 @@ export class GuildService {
             throw new RequestError(ExceptionType.BAD_REQUEST, 'Use leave guild to remove yourself');
         }
 
-        const canRemoveMember = await fgaClient.check({
-            user: `user:${userId}`,
-            relation: "can_kick_members",
-            object: `guild:${guildId}`
-        });
+        const canRemoveMember = await RoleAuthClient.checkPermission(userId, guildId, "can_kick_members");
+        // const canRemoveMember = await fgaClient.check({
+        //     user: `user:${userId}`,
+        //     relation: "can_kick_members",
+        //     object: `guild:${guildId}`
+        // });
         if (!canRemoveMember.allowed) {
             throw new RequestError(ExceptionType.FORBIDDEN, 'You do not have permission to remove members from this guild');
         }
@@ -568,11 +594,12 @@ export class GuildService {
     }
 
     static async updateRole(guildId: string, roleId: string, userId: string, data: Partial<{ roleName: string; permissions: string[]; color: string }>) {
-        const canUpdateRole = await fgaClient.check({
-            user: `user:${userId}`,
-            relation: "can_manage_roles",
-            object: `guild:${guildId}`
-        });
+        const canUpdateRole = await RoleAuthClient.checkPermission(userId, guildId, "can_manage_roles");
+        // const canUpdateRole = await fgaClient.check({
+        //     user: `user:${userId}`,
+        //     relation: "can_manage_roles",
+        //     object: `guild:${guildId}`
+        // });
         if (!canUpdateRole.allowed) {
             throw new RequestError(ExceptionType.FORBIDDEN, 'You do not have permission to update roles in this guild');
         }
@@ -585,33 +612,36 @@ export class GuildService {
         return await prismaClient.$transaction(async (tx) => {
             try {
                 const updatedRole = await GuildRolesDAO.update(roleId, data, tx);
-                if (data.permissions) {
-                    const { tuples: roleTuples } = await fgaClient.read({
-                        user: `role:${roleId}#has_role`,
-                        object: `guild:${guildId}`
-                    });
+                
+                await RoleAuthClient.deleteRole(guildId, roleId);
+                await RoleAuthClient.createRole(guildId, roleId, data.permissions ?? []);
+                // if (data.permissions) {
+                //     const { tuples: roleTuples } = await fgaClient.read({
+                //         user: `role:${roleId}#has_role`,
+                //         object: `guild:${guildId}`
+                //     });
 
-                    if (roleTuples?.length) {
-                        await fgaClient.write({
-                            deletes: roleTuples.map(tuple => ({
-                                object: tuple.key.object,
-                                relation: tuple.key.relation,
-                                user: tuple.key.user
-                            }))
-                        });
-                    }
+                //     if (roleTuples?.length) {
+                //         await fgaClient.write({
+                //             deletes: roleTuples.map(tuple => ({
+                //                 object: tuple.key.object,
+                //                 relation: tuple.key.relation,
+                //                 user: tuple.key.user
+                //             }))
+                //         });
+                //     }
 
-                    if (data.permissions.length === 0)
-                        return updatedRole;
+                //     if (data.permissions.length === 0)
+                //         return updatedRole;
 
-                    await fgaClient.write({
-                        writes: data.permissions.map(permission => ({
-                            user: `role:${role.roleId}#has_role`,
-                            relation: permission,
-                            object: `guild:${guildId}`
-                        }))
-                    });
-                }
+                //     await fgaClient.write({
+                //         writes: data.permissions.map(permission => ({
+                //             user: `role:${role.roleId}#has_role`,
+                //             relation: permission,
+                //             object: `guild:${guildId}`
+                //         }))
+                //     });
+                // }
                 return updatedRole;
             } catch (error) {
                 console.error('Error updating role:', error);
@@ -621,11 +651,12 @@ export class GuildService {
     }
 
     static async deleteRole(guildId: string, roleId: string, userId: string) {
-        const canDeleteRole = await fgaClient.check({
-            user: `user:${userId}`,
-            relation: "can_manage_roles",
-            object: `guild:${guildId}`
-        });
+        const canDeleteRole = await RoleAuthClient.checkPermission(userId, guildId, "can_manage_roles");
+        // const canDeleteRole = await fgaClient.check({
+        //     user: `user:${userId}`,
+        //     relation: "can_manage_roles",
+        //     object: `guild:${guildId}`
+        // });
         if (!canDeleteRole.allowed) {
             throw new RequestError(ExceptionType.FORBIDDEN, 'You do not have permission to delete roles in this guild');
         }
@@ -639,19 +670,20 @@ export class GuildService {
             try {
                 await GuildRolesDAO.deleteByRoleId(roleId, tx);
 
-                const { tuples: roleTuples } = await fgaClient.read({
-                    object: `role:${roleId}`
-                });
+                await RoleAuthClient.deleteRole(guildId, roleId);
+                // const { tuples: roleTuples } = await fgaClient.read({
+                //     object: `role:${roleId}`
+                // });
 
-                if (roleTuples?.length) {
-                    await fgaClient.write({
-                        deletes: roleTuples.map(tuple => ({
-                            object: tuple.key.object,
-                            relation: tuple.key.relation,
-                            user: tuple.key.user
-                        }))
-                    });
-                }
+                // if (roleTuples?.length) {
+                //     await fgaClient.write({
+                //         deletes: roleTuples.map(tuple => ({
+                //             object: tuple.key.object,
+                //             relation: tuple.key.relation,
+                //             user: tuple.key.user
+                //         }))
+                //     });
+                // }
 
             } catch (error) {
                 console.error('Error deleting role:', error);
@@ -661,11 +693,12 @@ export class GuildService {
     }
 
     static async banUserFromGuild(guildId: string, userId: string, memberId: string) {
-        const canBanMember = await fgaClient.check({
-            user: `user:${userId}`,
-            relation: "can_ban_members",
-            object: `guild:${guildId}`
-        });
+        const canBanMember = await RoleAuthClient.checkPermission(userId, guildId, "can_ban_members");
+        // const canBanMember = await fgaClient.check({
+        //     user: `user:${userId}`,
+        //     relation: "can_ban_members",
+        //     object: `guild:${guildId}`
+        // });
         if (!canBanMember.allowed) {
             throw new RequestError(ExceptionType.FORBIDDEN, 'You do not have permission to ban members from this guild');
         }
@@ -696,11 +729,12 @@ export class GuildService {
     }
 
     static async unbanUserFromGuild(guildId: string, userId: string, memberId: string) {
-        const canUnbanMember = await fgaClient.check({
-            user: `user:${userId}`,
-            relation: "can_ban_members",
-            object: `guild:${guildId}`
-        });
+        const canUnbanMember = await RoleAuthClient.checkPermission(userId, guildId, "can_ban_members");
+        // const canUnbanMember = await fgaClient.check({
+        //     user: `user:${userId}`,
+        //     relation: "can_ban_members",
+        //     object: `guild:${guildId}`
+        // });
 
         if (!canUnbanMember.allowed) {
             throw new RequestError(ExceptionType.FORBIDDEN, 'You do not have permission to unban members from this guild');
@@ -722,11 +756,12 @@ export class GuildService {
     }
 
     static async getAllBansByGuildId(guildId: string, userId: string) {
-        const canViewBans = await fgaClient.check({
-            user: `user:${userId}`,
-            relation: "can_ban_members",
-            object: `guild:${guildId}`
-        });
+        const canViewBans = await RoleAuthClient.checkPermission(userId, guildId, "can_ban_members");
+        // const canViewBans = await fgaClient.check({
+        //     user: `user:${userId}`,
+        //     relation: "can_ban_members",
+        //     object: `guild:${guildId}`
+        // });
         if (!canViewBans.allowed) {
             throw new RequestError(ExceptionType.FORBIDDEN, 'You do not have permission to view bans in this guild');
         }
@@ -745,11 +780,12 @@ export class GuildService {
             throw new RequestError(ExceptionType.NOT_FOUND, 'Guild not found');
         }
 
-        const isOwner = await fgaClient.check({
-            user: `user:${userId}`,
-            relation: "owner",
-            object: `guild:${guildId}`
-        });
+        const isOwner = await RoleAuthClient.checkPermission(userId, guildId, "owner");
+        // const isOwner = await fgaClient.check({
+        //     user: `user:${userId}`,
+        //     relation: "owner",
+        //     object: `guild:${guildId}`
+        // });
         if (!isOwner.allowed) {
             throw new RequestError(ExceptionType.FORBIDDEN, 'Only the guild owner can delete the guild');
         }
@@ -761,34 +797,36 @@ export class GuildService {
                 await GuildDAO.delete(guildId, tx);
 
                 for (const roleId of roleIds) {
-                    const { tuples: roleTuples } = await fgaClient.read({
-                        object: `role:${roleId}`
-                    });
+                    await RoleAuthClient.deleteRole(guildId, roleId);
+                    // const { tuples: roleTuples } = await fgaClient.read({
+                    //     object: `role:${roleId}`
+                    // });
 
-                    if (roleTuples?.length) {
-                        await fgaClient.write({
-                            deletes: roleTuples.map(tuple => ({
-                                object: tuple.key.object,
-                                relation: tuple.key.relation,
-                                user: tuple.key.user
-                            }))
-                        });
-                    }
+                    // if (roleTuples?.length) {
+                    //     await fgaClient.write({
+                    //         deletes: roleTuples.map(tuple => ({
+                    //             object: tuple.key.object,
+                    //             relation: tuple.key.relation,
+                    //             user: tuple.key.user
+                    //         }))
+                    //     });
+                    // }
                 }
 
-                const { tuples: guildTuples } = await fgaClient.read({
-                    object: `guild:${guildId}`
-                });
+                await RoleAuthClient.deleteGuild(guildId);
+                // const { tuples: guildTuples } = await fgaClient.read({
+                //     object: `guild:${guildId}`
+                // });
 
-                if (guildTuples?.length) {
-                    await fgaClient.write({
-                        deletes: guildTuples.map(tuple => ({
-                            object: tuple.key.object,
-                            relation: tuple.key.relation,
-                            user: tuple.key.user
-                        }))
-                    });
-                }
+                // if (guildTuples?.length) {
+                //     await fgaClient.write({
+                //         deletes: guildTuples.map(tuple => ({
+                //             object: tuple.key.object,
+                //             relation: tuple.key.relation,
+                //             user: tuple.key.user
+                //         }))
+                //     });
+                // }
             } catch (error) {
                 console.error('Error deleting guild:', error);
                 throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to delete guild');
@@ -799,11 +837,12 @@ export class GuildService {
 
     static async changeOwner(guildId: string, currentUserId: string, newOwnerId: string) {
         // permission: only a principal allowed can_change_owner (model: owner)
-        const canChange = await fgaClient.check({
-            user: `user:${currentUserId}`,
-            relation: "can_change_owner",
-            object: `guild:${guildId}`
-        });
+        const canChange = await RoleAuthClient.checkPermission(currentUserId, guildId, "can_change_owner");
+        // const canChange = await fgaClient.check({
+        //     user: `user:${currentUserId}`,
+        //     relation: "can_change_owner",
+        //     object: `guild:${guildId}`
+        // });
         if (!canChange.allowed) {
             throw new RequestError(ExceptionType.FORBIDDEN, "You do not have permission to change guild ownership");
         }
@@ -836,18 +875,19 @@ export class GuildService {
 
         // Update OpenFGA tuples: remove old owner tuple, add new owner tuple
         try {
-            await fgaClient.write({
-                deletes: [{
-                    user: `user:${guild.ownerId}`,
-                    relation: "owner",
-                    object: `guild:${guildId}`
-                }],
-                writes: [{
-                    user: `user:${newOwnerId}`,
-                    relation: "owner",
-                    object: `guild:${guildId}`
-                }]
-            });
+            await RoleAuthClient.changeOwner(guildId, newOwnerId);
+            // await fgaClient.write({
+            //     deletes: [{
+            //         user: `user:${guild.ownerId}`,
+            //         relation: "owner",
+            //         object: `guild:${guildId}`
+            //     }],
+            //     writes: [{
+            //         user: `user:${newOwnerId}`,
+            //         relation: "owner",
+            //         object: `guild:${guildId}`
+            //     }]
+            // });
         } catch (err) {
             console.error("Failed to update OpenFGA owner tuples after DB owner update:", err);
             throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, "Failed to update ownership in permission store");

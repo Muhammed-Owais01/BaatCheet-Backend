@@ -5,6 +5,7 @@ import RequestError from "../errors/request-error.js";
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import env from "@baatcheet/env";
+import { RoleAuthClient } from "./role-auth.js";
 
 class UserService {
   static async getAll() {
@@ -29,6 +30,9 @@ class UserService {
 
     if (!user)
       throw new RequestError(ExceptionType.INTERNAL_SERVER_ERROR, 'Failed to create user');
+
+    
+    await RoleAuthClient.createUser(user.userId);
 
     return user;
   }
