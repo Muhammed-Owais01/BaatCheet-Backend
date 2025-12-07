@@ -614,7 +614,7 @@ export class GuildService {
                 const updatedRole = await GuildRolesDAO.update(roleId, data, tx);
                 
                 await RoleAuthClient.deleteRole(guildId, roleId);
-                await RoleAuthClient.createRole(guildId, roleId, data.permissions!!);
+                await RoleAuthClient.createRole(guildId, roleId, data.permissions ?? []);
                 // if (data.permissions) {
                 //     const { tuples: roleTuples } = await fgaClient.read({
                 //         user: `role:${roleId}#has_role`,
