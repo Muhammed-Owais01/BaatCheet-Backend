@@ -128,7 +128,6 @@ class UserController {
   static async getFriends(req: Request, res: Response) {
     const friends = await UserFriendService.getUserFriends(req.user!.userId as string);
 
-    console.log(friends);
 
     res.status(200).json({
       success: true,
