@@ -1,4 +1,5 @@
 import fetch from "node-fetch";
+import env from "@baatcheet/env";
 
 interface ToxicityResult {
   toxic: boolean;
@@ -7,7 +8,7 @@ interface ToxicityResult {
 
 export async function checkToxicity(message: string): Promise<ToxicityResult> {
   try {
-    const response = await fetch(`http://localhost:8000/predict`, {
+    const response = await fetch(`${env.MODEL_URL}/predict`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: message }),
