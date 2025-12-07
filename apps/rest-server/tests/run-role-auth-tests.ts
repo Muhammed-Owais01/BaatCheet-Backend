@@ -16,11 +16,6 @@ async function createGuild(ownerId: string, guildName: string): Promise<{ guildI
   return { guildId };
 }
 
-async function createRole(guildId: string, roleName: string, permissions: string[] = []) {
-  const roleId = `${guildId}_${roleName}_${Date.now()}`;
-  await RoleAuthClient.createRole(guildId, roleId, permissions);
-  return { roleId, roleName };
-}
 
 async function addMember(guildId: string, userId: string, roleId: string) {
   await RoleAuthClient.addMember(guildId, userId, roleId);
